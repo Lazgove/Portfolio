@@ -1,4 +1,4 @@
-import BoxScene from "./BoxScene" // adjust the path if needed
+import BoxScene from "../components/BoxScene" // adjust the path if needed
 
 export default function Home() {
   return (
