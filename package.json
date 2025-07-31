@@ -1,15 +1,17 @@
 {
-  "name": "mon-portfolio",
+  "name": "react-portfolio",
   "version": "1.0.0",
-    "scripts": {
+  "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "three": "^0.164.0"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.14.1"
   },
   "devDependencies": {
-    "vite": "^5.0.0"
+    "vite": "^4.4.9"
   }
 }
