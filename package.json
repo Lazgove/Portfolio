@@ -13,5 +13,10 @@
   },
   "devDependencies": {
     "vite": "^4.4.9"
-  }
+  },
+  "engines": {
+  "node": "20.x",
+  "npm": "9.x"
+}
+
 }
