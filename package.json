@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && cp about.html dist/ && cp contact.html dist/ && cp projects.html dist/",
     "preview": "vite preview"
   },
   "dependencies": {
