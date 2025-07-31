@@ -1,9 +1,9 @@
 {
   "name": "mon-portfolio",
   "version": "1.0.0",
-  "scripts": {
+    "scripts": {
     "dev": "vite",
-    "build": "vite build && cp about.html dist/ && cp contact.html dist/ && cp projects.html dist/",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {

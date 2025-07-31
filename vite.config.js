@@ -1,16 +1,16 @@
 import { defineConfig } from 'vite'
-import { createHtmlPlugin } from 'vite-plugin-multi-html'
+import { resolve } from 'path'
 
 export default defineConfig({
   base: './',
-  plugins: [
-    createHtmlPlugin({
-      pages: {
-        index: 'index.html',
-        about: 'about.html',
-        contact: 'contact.html',
-        projects: 'projects.html',
-      }
-    })
-  ]
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        about: resolve(__dirname, 'about.html'),
+        projects: resolve(__dirname, 'projects.html'),
+        contact: resolve(__dirname, 'contact.html'),
+      },
+    },
+  },
 })
