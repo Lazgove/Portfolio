@@ -1,15 +1,16 @@
-import BoxScene from "../components/BoxScene" // adjust the path if needed
+import { motion } from 'framer-motion'
 
 export default function Home() {
   return (
-    <section className="text-center">
-      <h2 className="text-4xl font-bold mb-4">Welcome to my portfolio!</h2>
-      <p className="text-lg text-gray-600">Discover my work in motion design and 3D.</p>
-
-      {/* Add your 3D scene here */}
-      <div className="mt-8" style={{ height: "400px" }}>
-        <BoxScene />
-      </div>
-    </section>
+    <motion.section
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.4 }}
+      className="text-center"
+    >
+      <h2 className="text-4xl font-bold mb-4">Welcome!</h2>
+      <p>Here's a quick intro to my world of motion design & 3D.</p>
+    </motion.section>
   )
 }
