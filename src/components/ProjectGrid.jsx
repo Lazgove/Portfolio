@@ -1,6 +1,6 @@
 // src/components/ProjectGrid.jsx
 import ProjectCard from "./ProjectCard";
-import { projects } from "../data/projects";
+import { projects } from "../data/projects.js";
 
 export default function ProjectGrid() {
   return (
