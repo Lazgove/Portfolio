@@ -1,22 +1,28 @@
-import { Routes, Route } from 'react-router-dom'
-import Header from './components/Header'
-import Footer from './components/Footer'
-import Home from './pages/Home'
-import About from './pages/About'
-import Projects from './pages/Projects'
+import Navbar from '../components/Navbar';
+import Home from '../pages/Home';
+import About from '../pages/About';
+import Projects from '../pages/Projects';
+import Contact from '../pages/Contact';
+import { Element } from 'react-scroll';
 
 export default function App() {
   return (
     <>
-      <Header />
-      <main className="p-8">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/projects" element={<Projects />} />
-        </Routes>
+      <Navbar />
+      <main className="pt-20">
+        <Element name="home">
+          <Home />
+        </Element>
+        <Element name="about">
+          <About />
+        </Element>
+        <Element name="projects">
+          <Projects />
+        </Element>
+        <Element name="contact">
+          <Contact />
+        </Element>
       </main>
-      <Footer />
     </>
-  )
+  );
 }
