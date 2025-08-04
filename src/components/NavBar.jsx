@@ -8,6 +8,7 @@ export default function Navbar() {
     { name: 'Contact', to: 'contact' },
   ];
 
+
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-black bg-opacity-80 shadow">
       <ul className="flex justify-center gap-6 p-4 text-white">
