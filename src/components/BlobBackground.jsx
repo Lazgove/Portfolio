@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-const WavyBackground = () => {
+const BlobBackground = () => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -15,52 +15,59 @@ const WavyBackground = () => {
       height = canvas.height = window.innerHeight;
     });
 
-    const numLines = 12;
-    const lineSpacing = height / numLines;
-    const speed = 0.02;
+    const numBlobs = 6;
+    const blobs = Array.from({ length: numBlobs }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      r: 100 + Math.random() * 60,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.002 + Math.random() * 0.003
+    }));
 
-    let time = 0;
-
-    function drawLine(yOffset, amplitude, frequency, phase) {
-      ctx.beginPath();
-
-      for (let x = 0; x <= width; x += 2) {
-        const y =
-          yOffset +
-          Math.sin((x * frequency) + time + phase) * amplitude +
-          Math.sin((x * frequency * 0.5) + time * 0.5 + phase) * amplitude * 0.5;
-
-        ctx.lineTo(x, y);
-      }
-
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 12; // Much thicker lines
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-      ctx.shadowBlur = 20;
-      ctx.stroke();
-    }
-
-    function drawBackgroundGradient() {
+    function drawGradientBackground() {
       const gradient = ctx.createLinearGradient(0, 0, 0, height);
       gradient.addColorStop(0, '#ff9a9e');
-      gradient.addColorStop(0.5, '#fad0c4');
-      gradient.addColorStop(1, '#fbc2eb');
+      gradient.addColorStop(1, '#fad0c4');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
     }
 
-    function animate() {
-      time += speed;
+    function drawBlob(blob, t) {
+      const points = 60;
+      const step = (Math.PI * 2) / points;
 
-      drawBackgroundGradient();
+      ctx.beginPath();
 
-      for (let i = 0; i < numLines; i++) {
-        const y = i * lineSpacing + lineSpacing / 2;
-        const amp = 40 + Math.sin(time + i) * 20; // More wobble
-        const freq = 0.01 + (i % 3) * 0.002;      // Different frequencies
-        drawLine(y, amp, freq, i);
+      for (let i = 0; i <= points; i++) {
+        const angle = i * step;
+        const offset =
+          Math.sin(angle * 3 + t * blob.speed + blob.phase) * blob.r * 0.3;
+        const radius = blob.r + offset;
+        const x = blob.x + Math.cos(angle) * radius;
+        const y = blob.y + Math.sin(angle) * radius;
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
 
+      ctx.closePath();
+      ctx.fillStyle = 'white';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+      ctx.shadowBlur = 30;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    let t = 0;
+
+    function animate() {
+      drawGradientBackground();
+
+      blobs.forEach((blob) => {
+        drawBlob(blob, t);
+      });
+
+      t += 1;
       requestAnimationFrame(animate);
     }
 
@@ -74,12 +81,12 @@ const WavyBackground = () => {
         position: 'fixed',
         top: 0,
         left: 0,
-        zIndex: -1,
         width: '100%',
         height: '100%',
+        zIndex: -1,
       }}
     />
   );
 };
 
-export default WavyBackground;
+export default BlobBackground;

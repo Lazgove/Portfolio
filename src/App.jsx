@@ -4,12 +4,12 @@ import About from './pages/About';
 import Projects from './pages/Projects';
 import Contact from './pages/Contact';
 import { Element } from 'react-scroll';
-import WavyBackground from './components/BlobBackground'; // <-- 👈 Add this import
+import BlobBackground from './components/BlobBackground'; // <-- 👈 Add this import
 
 export default function App() {
   return (
     <>
-      <WavyBackground /> {/* 👈 Background canvas behind everything */}
+      <BlobBackground /> {/* 👈 Background canvas behind everything */}
       <Navbar />
       <main className="pt-20 relative z-10"> {/* Ensure content sits above canvas */}
         <Element name="home">
