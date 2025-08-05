@@ -1,36 +1,81 @@
-// src/components/BlobBackground.jsx
-export default function BlobBackground() {
+import { useEffect, useRef } from 'react';
+
+const BlobBackground = () => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    });
+
+    const numBlobs = 10;
+
+    const blobs = Array.from({ length: numBlobs }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      r: 100 + Math.random() * 50,
+      dx: (Math.random() - 0.5) * 0.5,
+      dy: (Math.random() - 0.5) * 0.5,
+      color1: `hsl(${Math.random() * 360}, 80%, 60%)`,
+      color2: `hsl(${Math.random() * 360}, 80%, 80%)`
+    }));
+
+    function drawBlob(blob) {
+      const gradient = ctx.createRadialGradient(blob.x, blob.y, blob.r * 0.2, blob.x, blob.y, blob.r);
+      gradient.addColorStop(0, blob.color1);
+      gradient.addColorStop(1, blob.color2);
+
+      ctx.beginPath();
+      ctx.arc(blob.x, blob.y, blob.r, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.shadowColor = blob.color1;
+      ctx.shadowBlur = 40;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+
+      blobs.forEach(blob => {
+        blob.x += blob.dx;
+        blob.y += blob.dy;
+
+        // Bounce off walls
+        if (blob.x - blob.r < 0 || blob.x + blob.r > width) blob.dx *= -1;
+        if (blob.y - blob.r < 0 || blob.y + blob.r > height) blob.dy *= -1;
+
+        drawBlob(blob);
+      });
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  }, []);
+
   return (
-    <div
-      className="absolute top-0 left-0 w-full h-full -z-10 pointer-events-none overflow-hidden"
-      aria-hidden="true"
-    >
-      {/* Blob 1 */}
-      <div
-        className="absolute w-[600px] h-[600px] top-[-150px] left-[-150px]
-        rounded-full filter blur-2xl 
-        bg-gradient-to-tr from-pink-400 via-red-400 to-yellow-300 
-        opacity-30 animate-blob"
-        style={{ animationDelay: '0s' }}
-      />
-
-      {/* Blob 2 */}
-      <div
-        className="absolute w-[500px] h-[500px] top-1/3 left-1/2
-        rounded-full filter blur-2xl 
-        bg-gradient-to-tr from-blue-400 via-indigo-400 to-purple-400 
-        opacity-25 animate-blob"
-        style={{ animationDelay: '2s' }}
-      />
-
-      {/* Blob 3 */}
-      <div
-        className="absolute w-[700px] h-[700px] bottom-[-200px] right-[-200px]
-        rounded-full filter blur-2xl 
-        bg-gradient-to-tr from-green-300 via-teal-300 to-cyan-300 
-        opacity-20 animate-blob"
-        style={{ animationDelay: '4s' }}
-      />
-    </div>
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: -1,
+        width: '100%',
+        height: '100%',
+      }}
+    />
   );
-}
+};
+
+export default BlobBackground;
