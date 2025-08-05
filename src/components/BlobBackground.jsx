@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-const BlobBackground = () => {
+const WavyBackground = () => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -15,47 +15,49 @@ const BlobBackground = () => {
       height = canvas.height = window.innerHeight;
     });
 
-    const numBlobs = 10;
+    const numLines = 10;
+    const lineSpacing = height / numLines;
+    const speed = 0.002;
 
-    const blobs = Array.from({ length: numBlobs }, () => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      r: 100 + Math.random() * 50,
-      dx: (Math.random() - 0.5) * 0.5,
-      dy: (Math.random() - 0.5) * 0.5,
-      color1: `hsl(${Math.random() * 360}, 80%, 60%)`,
-      color2: `hsl(${Math.random() * 360}, 80%, 80%)`
-    }));
+    let time = 0;
 
-    function drawBlob(blob) {
-      const gradient = ctx.createRadialGradient(blob.x, blob.y, blob.r * 0.2, blob.x, blob.y, blob.r);
-      gradient.addColorStop(0, blob.color1);
-      gradient.addColorStop(1, blob.color2);
-
+    function drawLine(yOffset, waveHeight, freq, phase) {
       ctx.beginPath();
-      ctx.arc(blob.x, blob.y, blob.r, 0, Math.PI * 2);
+      const amplitude = waveHeight;
+      const wavelength = width / freq;
+
+      for (let x = 0; x <= width; x += 10) {
+        const y = yOffset + Math.sin((x * 0.01) + time + phase) * amplitude;
+        ctx.lineTo(x, y);
+      }
+
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+    }
+
+    function drawBackgroundGradient() {
+      const gradient = ctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, '#c471f5');
+      gradient.addColorStop(1, '#fa71cd');
       ctx.fillStyle = gradient;
-      ctx.shadowColor = blob.color1;
-      ctx.shadowBlur = 40;
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      ctx.fillRect(0, 0, width, height);
     }
 
     function animate() {
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, width, height);
+      time += speed;
 
-      blobs.forEach(blob => {
-        blob.x += blob.dx;
-        blob.y += blob.dy;
+      // Background
+      drawBackgroundGradient();
 
-        // Bounce off walls
-        if (blob.x - blob.r < 0 || blob.x + blob.r > width) blob.dx *= -1;
-        if (blob.y - blob.r < 0 || blob.y + blob.r > height) blob.dy *= -1;
-
-        drawBlob(blob);
-      });
+      // Lines
+      for (let i = 0; i < numLines; i++) {
+        const y = i * lineSpacing + lineSpacing / 2;
+        const waveHeight = 20 + Math.sin(time + i) * 10;
+        drawLine(y, waveHeight, 2 + (i % 3), i);
+      }
 
       requestAnimationFrame(animate);
     }
@@ -78,4 +80,4 @@ const BlobBackground = () => {
   );
 };
 
-export default BlobBackground;
+export default WavyBackground;
