@@ -15,33 +15,36 @@ const WavyBackground = () => {
       height = canvas.height = window.innerHeight;
     });
 
-    const numLines = 10;
+    const numLines = 12;
     const lineSpacing = height / numLines;
-    const speed = 0.002;
+    const speed = 0.02;
 
     let time = 0;
 
-    function drawLine(yOffset, waveHeight, freq, phase) {
+    function drawLine(yOffset, amplitude, frequency, phase) {
       ctx.beginPath();
-      const amplitude = waveHeight;
-      const wavelength = width / freq;
 
-      for (let x = 0; x <= width; x += 10) {
-        const y = yOffset + Math.sin((x * 0.01) + time + phase) * amplitude;
+      for (let x = 0; x <= width; x += 2) {
+        const y =
+          yOffset +
+          Math.sin((x * frequency) + time + phase) * amplitude +
+          Math.sin((x * frequency * 0.5) + time * 0.5 + phase) * amplitude * 0.5;
+
         ctx.lineTo(x, y);
       }
 
       ctx.strokeStyle = 'white';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 12; // Much thicker lines
       ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 20;
       ctx.stroke();
     }
 
     function drawBackgroundGradient() {
       const gradient = ctx.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, '#c471f5');
-      gradient.addColorStop(1, '#fa71cd');
+      gradient.addColorStop(0, '#ff9a9e');
+      gradient.addColorStop(0.5, '#fad0c4');
+      gradient.addColorStop(1, '#fbc2eb');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
     }
@@ -49,14 +52,13 @@ const WavyBackground = () => {
     function animate() {
       time += speed;
 
-      // Background
       drawBackgroundGradient();
 
-      // Lines
       for (let i = 0; i < numLines; i++) {
         const y = i * lineSpacing + lineSpacing / 2;
-        const waveHeight = 20 + Math.sin(time + i) * 10;
-        drawLine(y, waveHeight, 2 + (i % 3), i);
+        const amp = 40 + Math.sin(time + i) * 20; // More wobble
+        const freq = 0.01 + (i % 3) * 0.002;      // Different frequencies
+        drawLine(y, amp, freq, i);
       }
 
       requestAnimationFrame(animate);
