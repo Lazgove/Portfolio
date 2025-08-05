@@ -1,8 +1,8 @@
-import Navbar from '../components/Navbar.jsx';
-import Home from '../pages/Home';
-import About from '../pages/About';
-import Projects from '../pages/Projects';
-import Contact from '../pages/Contact';
+import Navbar from 'components/Navbar';
+import Home from 'pages/Home';
+import About from 'pages/About';
+import Projects from 'pages/Projects';
+import Contact from 'pages/Contact';
 import { Element } from 'react-scroll';
 
 export default function App() {
