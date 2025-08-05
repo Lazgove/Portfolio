@@ -11,12 +11,12 @@ export default function ProjectCard({ title, image, description, tech, link }) {
     >
       <a
         href={link || "#"}
-        className="block group relative overflow-hidden shadow-md bg-neutral-900 hover:shadow-xl transition-all"
+        className="block group relative overflow-hidden rounded-xl shadow-md bg-neutral-900 hover:shadow-xl transition-all"
       >
         <img
           src={image}
           alt={title}
-          className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-105 rounded-t-xl"
         />
         <div className="p-4">
           <h3 className="text-lg font-semibold text-white">{title}</h3>
