@@ -13,7 +13,7 @@ function Box() {
 
 export default function BoxScene() {
   return (
-    <Canvas style={{ height: "100vh", background: "lightblue" }}>
+    <Canvas style={{ height: "100vh", background: "white" }}>
       <ambientLight intensity={0.5} />
       <pointLight position={[10, 10, 10]} />
       <Box />
