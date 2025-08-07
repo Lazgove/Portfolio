@@ -12,9 +12,39 @@ const StarField = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
+    // Create noise texture with dark gradient + noise
+    function createNoiseTexture(texWidth = 256, texHeight = 256) {
+      const canvas = document.createElement("canvas");
+      canvas.width = texWidth;
+      canvas.height = texHeight;
+      const ctx = canvas.getContext("2d");
+
+      // Gradient: dark blue -> dark green -> dark purple
+      const gradient = ctx.createLinearGradient(0, 0, texWidth, texHeight);
+      gradient.addColorStop(0, "#0b1e3a"); // dark blue
+      gradient.addColorStop(0.5, "#0a2e2e"); // dark green
+      gradient.addColorStop(1, "#2a0b3a"); // dark purple
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, texWidth, texHeight);
+
+      // Add subtle noise
+      const imageData = ctx.getImageData(0, 0, texWidth, texHeight);
+      const buffer = imageData.data;
+      for (let i = 0; i < buffer.length; i += 4) {
+        const noise = (Math.random() - 0.5) * 30; // adjust noise intensity here
+        buffer[i] = Math.min(255, Math.max(0, buffer[i] + noise));     // R
+        buffer[i + 1] = Math.min(255, Math.max(0, buffer[i + 1] + noise)); // G
+        buffer[i + 2] = Math.min(255, Math.max(0, buffer[i + 2] + noise)); // B
+      }
+      ctx.putImageData(imageData, 0, 0);
+
+      return new THREE.CanvasTexture(canvas);
+    }
+
     // Scene, camera, renderer
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0b1e); // Nebula-like deep background
+    scene.background = createNoiseTexture();
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     camera.position.z = 15;
@@ -48,7 +78,7 @@ const StarField = () => {
     scene.add(ambientLight);
 
     // Stars
-    const NUM_STARS = 600;
+    const NUM_STARS = 300;
     const starsGroup = new THREE.Group();
     scene.add(starsGroup);
 
