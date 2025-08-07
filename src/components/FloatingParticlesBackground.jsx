@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 
 const SphereBackground = () => {
-  const mountRef = React.useRef(null);
+  const mountRef = useRef(null);
 
   useEffect(() => {
     const width = window.innerWidth;
@@ -10,12 +10,15 @@ const SphereBackground = () => {
 
     // Scene & camera
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000); // black background
+
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     camera.position.z = 7;
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
+    renderer.setClearColor(0x000000, 1); // solid black background
     mountRef.current.appendChild(renderer.domElement);
 
     // Pastel colors palette
