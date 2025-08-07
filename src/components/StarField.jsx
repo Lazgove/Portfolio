@@ -47,9 +47,9 @@ const StarField = () => {
     glowCanvas.height = 64;
     const ctx = glowCanvas.getContext("2d");
     const gradient = ctx.createRadialGradient(32, 32, 2, 32, 32, 32);
-    gradient.addColorStop(0, "rgba(255, 255, 200, 0.8)");
-    gradient.addColorStop(0.2, "rgba(255, 255, 200, 0.4)");
-    gradient.addColorStop(1, "rgba(255, 255, 200, 0)");
+    gradient.addColorStop(0, "rgba(255, 255, 200, 1)");     // stronger inner glow (opacity 1)
+    gradient.addColorStop(0.2, "rgba(255, 255, 200, 0.6)"); // stronger middle glow
+    gradient.addColorStop(1, "rgba(255, 255, 200, 0)");     // fade out to transparent
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 64, 64);
     const glowTexture = new THREE.CanvasTexture(glowCanvas);
@@ -66,7 +66,7 @@ const StarField = () => {
       const material = new THREE.MeshStandardMaterial({
         color: tintedColor,
         emissive: tintedColor,
-        emissiveIntensity: 1.5,
+        emissiveIntensity: 3,  // Increased emissive intensity for more glow
         roughness: 0.3,
         metalness: 0.5,
       });
@@ -78,8 +78,8 @@ const StarField = () => {
         (Math.random() - 0.5) * 30
       );
 
-      // Random scale between 0.1 and 0.4
-      const baseScale = 0.1 + Math.random() * 0.3;
+      // Random scale between 0.15 and 0.3 for moderate star sizes
+      const baseScale = 0.15 + Math.random() * 0.15;
       starMesh.scale.setScalar(baseScale);
 
       starsGroup.add(starMesh);
@@ -90,11 +90,11 @@ const StarField = () => {
         color: tintedColor,
         transparent: true,
         blending: THREE.AdditiveBlending,
-        opacity: 0.6,
+        opacity: 0.8,  // increased glow opacity
         depthWrite: false,
       });
       const glowSprite = new THREE.Sprite(spriteMaterial);
-      glowSprite.scale.set(baseScale * 2.5, baseScale * 2.5, 1);
+      glowSprite.scale.set(baseScale * 3.5, baseScale * 3.5, 1); // larger glow size
       glowSprite.position.copy(starMesh.position);
       starsGroup.add(glowSprite);
 
@@ -144,7 +144,7 @@ const StarField = () => {
           scaleFactor = 1 + 0.5 * (1 - distance / repulsionRadius);
         }
         mesh.scale.setScalar(baseScale * scaleFactor);
-        glow.scale.set(baseScale * 2.5 * scaleFactor, baseScale * 2.5 * scaleFactor, 1);
+        glow.scale.set(baseScale * 3.5 * scaleFactor, baseScale * 3.5 * scaleFactor, 1);
       });
 
       starsGroup.rotation.y += 0.0005;
