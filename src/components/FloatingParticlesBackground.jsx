@@ -1,121 +1,126 @@
-import React, { useRef, useMemo } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 
-const NUM_PARTICLES = 200;
+const SphereBackground = () => {
+  const mountRef = React.useRef(null);
 
-function Particles() {
-  const pointsRef = useRef();
-  const { mouse } = useThree();
+  useEffect(() => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-  // Initialize particle positions and velocities
-  const particles = useMemo(() => {
-    const arr = [];
-    for (let i = 0; i < NUM_PARTICLES; i++) {
-      arr.push({
-        position: new THREE.Vector3(
-          (Math.random() - 0.5) * 4,
-          (Math.random() - 0.5) * 4,
-          (Math.random() - 0.5) * 4
-        ),
+    // Scene & camera
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    camera.position.z = 5;
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(width, height);
+    mountRef.current.appendChild(renderer.domElement);
+
+    // Sphere parameters
+    const NUM_SPHERES = 100;
+    const spheres = [];
+
+    // Create spheres with random positions and velocities
+    for (let i = 0; i < NUM_SPHERES; i++) {
+      const geometry = new THREE.SphereGeometry(0.05, 16, 16);
+      const material = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0.4, 0.6, 1),
+        roughness: 0.5,
+        metalness: 0.3,
+        transparent: true,
+        opacity: 0.7,
+      });
+
+      const sphere = new THREE.Mesh(geometry, material);
+
+      sphere.position.set(
+        (Math.random() - 0.5) * 8,
+        (Math.random() - 0.5) * 5,
+        (Math.random() - 0.5) * 8
+      );
+
+      sphere.userData = {
         velocity: new THREE.Vector3(
           (Math.random() - 0.5) * 0.01,
           (Math.random() - 0.5) * 0.01,
           (Math.random() - 0.5) * 0.01
         ),
-      });
+      };
+
+      scene.add(sphere);
+      spheres.push(sphere);
     }
-    return arr;
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(1, 1, 1);
+    scene.add(directionalLight);
+
+    // Track mouse in normalized device coordinates (-1 to +1)
+    const mouse = new THREE.Vector2(0, 0);
+    const raycaster = new THREE.Raycaster();
+
+    function onMouseMove(event) {
+      mouse.x = (event.clientX / width) * 2 - 1;
+      mouse.y = -(event.clientY / height) * 2 + 1;
+    }
+
+    window.addEventListener("mousemove", onMouseMove);
+
+    // Animate function
+    const animate = () => {
+      requestAnimationFrame(animate);
+
+      // Convert mouse coords to 3D world coords at z=0 plane
+      raycaster.setFromCamera(mouse, camera);
+      const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+      const intersectPoint = new THREE.Vector3();
+      raycaster.ray.intersectPlane(planeZ, intersectPoint);
+
+      spheres.forEach((sphere) => {
+        // Simple attraction force toward mouse intersection point
+        const dir = intersectPoint.clone().sub(sphere.position);
+        const dist = dir.length();
+        if (dist < 1.5) {
+          const force = dir.normalize().multiplyScalar(0.005 * (1.5 - dist));
+          sphere.userData.velocity.add(force);
+        }
+
+        // Update position with velocity and apply damping
+        sphere.position.add(sphere.userData.velocity);
+        sphere.userData.velocity.multiplyScalar(0.95);
+
+        // Keep spheres inside a box volume [-4,4], [-2.5,2.5], [-4,4]
+        ["x", "y", "z"].forEach((axis) => {
+          if (sphere.position[axis] > (axis === "y" ? 2.5 : 4)) {
+            sphere.position[axis] = axis === "y" ? 2.5 : 4;
+            sphere.userData.velocity[axis] *= -1;
+          }
+          if (sphere.position[axis] < (axis === "y" ? -2.5 : -4)) {
+            sphere.position[axis] = axis === "y" ? -2.5 : -4;
+            sphere.userData.velocity[axis] *= -1;
+          }
+        });
+      });
+
+      renderer.render(scene, camera);
+    };
+
+    animate();
+
+    // Cleanup on unmount
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      mountRef.current.removeChild(renderer.domElement);
+    };
   }, []);
 
-  useFrame(() => {
-    if (!pointsRef.current) return;
+  return <div ref={mountRef} style={{ position: "fixed", inset: 0, zIndex: -1 }} />;
+};
 
-    const positions = pointsRef.current.geometry.attributes.position.array;
-    const mousePos = new THREE.Vector3(mouse.x * 2, mouse.y * 2, 0); // Scale mouse coords
-
-    for (let i = 0; i < NUM_PARTICLES; i++) {
-      const idx = i * 3;
-      const pos = new THREE.Vector3(
-        positions[idx],
-        positions[idx + 1],
-        positions[idx + 2]
-      );
-
-      // Attract particles within radius 1.5
-      const dist = pos.distanceTo(mousePos);
-      if (dist < 1.5) {
-        const dir = mousePos.clone().sub(pos).multiplyScalar(0.02 * (1.5 - dist));
-        particles[i].velocity.add(dir);
-      }
-
-      particles[i].position.add(particles[i].velocity);
-      particles[i].velocity.multiplyScalar(0.95);
-
-      // Bounce inside box [-2,2]
-      ["x", "y", "z"].forEach((axis) => {
-        if (particles[i].position[axis] > 2 || particles[i].position[axis] < -2)
-          particles[i].velocity[axis] *= -1;
-      });
-
-      positions[idx] = particles[i].position.x;
-      positions[idx + 1] = particles[i].position.y;
-      positions[idx + 2] = particles[i].position.z;
-    }
-
-    pointsRef.current.geometry.attributes.position.needsUpdate = true;
-  });
-
-  // Initial position buffer
-  const positions = useMemo(() => {
-    const arr = new Float32Array(NUM_PARTICLES * 3);
-    particles.forEach((p, i) => {
-      arr[i * 3] = p.position.x;
-      arr[i * 3 + 1] = p.position.y;
-      arr[i * 3 + 2] = p.position.z;
-    });
-    return arr;
-  }, [particles]);
-
-  return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attachObject={["attributes", "position"]}
-          count={NUM_PARTICLES}
-          array={positions}
-          itemSize={3}
-        />
-      </bufferGeometry>
-      <pointsMaterial
-        color="#99ccff"
-        size={0.1}
-        sizeAttenuation={true}
-        transparent={true}
-        opacity={0.5}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
-  );
-}
-
-export default function FloatingParticlesBackground() {
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        zIndex: -1,
-        pointerEvents: "none",
-      }}
-    >
-      <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
-        <Particles />
-      </Canvas>
-    </div>
-  );
-}
+export default SphereBackground;
