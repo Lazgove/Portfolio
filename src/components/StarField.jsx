@@ -54,7 +54,7 @@ function Stars({ count = 600 }) {
   );
 }
 
-function NebulaStarField() {
+function StarField() {
   const groupRef = useRef();
 
   useFrame(() => {
@@ -88,4 +88,4 @@ function NebulaStarField() {
   );
 }
 
-export default NebulaStarField;
+export default StarField;
