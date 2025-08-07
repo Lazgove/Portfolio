@@ -6,38 +6,34 @@ const NUM_PARTICLES = 200;
 
 function Particles() {
   const meshRef = useRef();
-  const { mouse, viewport } = useThree();
+  const { mouse } = useThree();
 
-  // Initialize particles data (positions + velocities)
   const particlesData = useMemo(() => {
     const temp = [];
     for (let i = 0; i < NUM_PARTICLES; i++) {
       temp.push({
         position: new THREE.Vector3(
-          (Math.random() - 0.5) * viewport.width,
-          (Math.random() - 0.5) * viewport.height,
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 2,
           (Math.random() - 0.5) * 2
         ),
         velocity: new THREE.Vector3(
-          (Math.random() - 0.5) * 0.002,
-          (Math.random() - 0.5) * 0.002,
-          (Math.random() - 0.5) * 0.002
+          (Math.random() - 0.5) * 0.01,
+          (Math.random() - 0.5) * 0.01,
+          (Math.random() - 0.5) * 0.01
         ),
       });
     }
     return temp;
-  }, [viewport]);
+  }, []);
 
   useFrame(() => {
     if (!meshRef.current) return;
 
     const positions = meshRef.current.geometry.attributes.position.array;
 
-    const mousePos = new THREE.Vector3(
-      (mouse.x * viewport.width) / 2,
-      (mouse.y * viewport.height) / 2,
-      0
-    );
+    // Convert mouse from [-1,1] range to world coords roughly centered at 0
+    const mousePos = new THREE.Vector3(mouse.x, mouse.y, 0);
 
     for (let i = 0; i < NUM_PARTICLES; i++) {
       const idx3 = i * 3;
@@ -47,28 +43,22 @@ function Particles() {
         positions[idx3 + 2]
       );
 
-      // Simple attraction to mouse if close enough
+      // Attract particles softly to mouse position if close
       const dist = pos.distanceTo(mousePos);
-      if (dist < 1) {
-        const attractionForce = mousePos.clone().sub(pos).multiplyScalar(0.01 * (1 - dist));
+      if (dist < 0.5) {
+        const attractionForce = mousePos.clone().sub(pos).multiplyScalar(0.02 * (0.5 - dist));
         particlesData[i].velocity.add(attractionForce);
       }
 
-      // Update position by velocity
       particlesData[i].position.add(particlesData[i].velocity);
+      particlesData[i].velocity.multiplyScalar(0.9);
 
-      // Dampen velocity
-      particlesData[i].velocity.multiplyScalar(0.95);
+      // Keep particles in cube [-1,1]
+      ['x','y','z'].forEach(axis => {
+        if (particlesData[i].position[axis] > 1) particlesData[i].velocity[axis] *= -1;
+        if (particlesData[i].position[axis] < -1) particlesData[i].velocity[axis] *= -1;
+      });
 
-      // Keep particles inside viewport bounds
-      if (particlesData[i].position.x > viewport.width / 2) particlesData[i].velocity.x *= -1;
-      if (particlesData[i].position.x < -viewport.width / 2) particlesData[i].velocity.x *= -1;
-      if (particlesData[i].position.y > viewport.height / 2) particlesData[i].velocity.y *= -1;
-      if (particlesData[i].position.y < -viewport.height / 2) particlesData[i].velocity.y *= -1;
-      if (particlesData[i].position.z > 2) particlesData[i].velocity.z *= -1;
-      if (particlesData[i].position.z < -2) particlesData[i].velocity.z *= -1;
-
-      // Write new positions back to buffer
       positions[idx3] = particlesData[i].position.x;
       positions[idx3 + 1] = particlesData[i].position.y;
       positions[idx3 + 2] = particlesData[i].position.z;
@@ -77,7 +67,6 @@ function Particles() {
     meshRef.current.geometry.attributes.position.needsUpdate = true;
   });
 
-  // Create BufferGeometry with initial positions
   const positions = useMemo(() => {
     const posArray = new Float32Array(NUM_PARTICLES * 3);
     particlesData.forEach((p, i) => {
@@ -99,12 +88,13 @@ function Particles() {
         />
       </bufferGeometry>
       <pointsMaterial
-        attach="material"
         color="#a8a8ff"
-        size={0.3}
+        size={5.8}
         sizeAttenuation={true}
         transparent={true}
-        opacity={0.15}
+        opacity={0.25}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
       />
     </points>
   );
@@ -120,10 +110,10 @@ export default function FloatingParticlesBackground() {
         width: '100%',
         height: '100%',
         zIndex: -1,
-        pointerEvents: 'none', // allows clicking through canvas
+        pointerEvents: 'none',
       }}
     >
-      <Canvas orthographic camera={{ zoom: 100, position: [0, 0, 10] }}>
+      <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
         <Particles />
       </Canvas>
     </div>
