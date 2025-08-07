@@ -8,31 +8,25 @@ const StarField = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
-    // Scene setup
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
 
-    // Camera setup
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     camera.position.z = 15;
 
-    // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
     renderer.setClearColor(0x000000, 1);
     mountRef.current.appendChild(renderer.domElement);
 
-    // Lighting for glow
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
     scene.add(ambientLight);
 
-    // Star parameters
     const NUM_STARS = 300;
-    const geometry = new THREE.SphereGeometry(0.1, 8, 8);
+    const geometry = new THREE.SphereGeometry(0.1, 12, 12);
     const starsGroup = new THREE.Group();
     scene.add(starsGroup);
 
-    // Base pastel colors
     const baseColors = [
       new THREE.Color(0xffc1cc), // pastel pink
       new THREE.Color(0xa0d8ef), // pastel blue
@@ -41,10 +35,8 @@ const StarField = () => {
       new THREE.Color(0xd0bbff), // pastel purple
     ];
 
-    // Yellow tint color
     const yellowTint = new THREE.Color(0xfff7cc);
 
-    // Helper to mix colors toward yellow tint (factor from 0 to 1)
     function applyYellowTint(color, factor = 0.2) {
       return color.clone().lerp(yellowTint, factor);
     }
@@ -52,14 +44,13 @@ const StarField = () => {
     const starsData = [];
 
     for (let i = 0; i < NUM_STARS; i++) {
-      // Apply yellow tint to each base color
       const baseColor = baseColors[i % baseColors.length];
-      const tintedColor = applyYellowTint(baseColor, 0.3); // 30% yellow tint
+      const tintedColor = applyYellowTint(baseColor, 0.3);
 
       const material = new THREE.MeshStandardMaterial({
         color: tintedColor,
         emissive: tintedColor,
-        emissiveIntensity: 0.7,
+        emissiveIntensity: 1.2,  // increased glow
         roughness: 0.3,
         metalness: 0.5,
       });
@@ -72,8 +63,14 @@ const StarField = () => {
         (Math.random() - 0.5) * 30
       );
 
-      const baseScale = 0.1 + Math.random() * 0.15;
+      // Random scale between 0.1 and 0.4 for bigger variety
+      const baseScale = 0.1 + Math.random() * 0.3;
       star.scale.setScalar(baseScale);
+
+      // Add a subtle point light for glow effect
+      const light = new THREE.PointLight(tintedColor, 0.3, 3);
+      light.position.copy(star.position);
+      scene.add(light);
 
       starsGroup.add(star);
 
@@ -81,6 +78,7 @@ const StarField = () => {
         mesh: star,
         originalPos: star.position.clone(),
         baseScale,
+        light,
       });
     }
 
@@ -104,15 +102,17 @@ const StarField = () => {
 
       const repulsionRadius = 5;
 
-      starsData.forEach(({ mesh, originalPos, baseScale }) => {
+      starsData.forEach(({ mesh, originalPos, baseScale, light }) => {
         const distance = mesh.position.distanceTo(mousePos3D);
 
         if (distance < repulsionRadius) {
           const strength = 0.1 * (1 - distance / repulsionRadius);
           const dir = mesh.position.clone().sub(mousePos3D).normalize();
           mesh.position.add(dir.multiplyScalar(strength));
+          light.position.copy(mesh.position);
         } else {
           mesh.position.lerp(originalPos, 0.02);
+          light.position.lerp(originalPos, 0.02);
         }
 
         let scaleFactor = 1;
