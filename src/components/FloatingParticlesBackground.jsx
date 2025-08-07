@@ -11,26 +11,38 @@ const SphereBackground = () => {
     // Scene & camera
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.z = 5;
+    camera.position.z = 7;
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
     mountRef.current.appendChild(renderer.domElement);
 
-    // Sphere parameters
+    // Pastel colors palette
+    const pastelColors = [
+      "#A8D5BA", // light green
+      "#F9D5E5", // light pink
+      "#FFE6A7", // light yellow
+      "#C9C9FF", // light blue
+      "#FFD6BA", // peach
+      "#D0F4DE", // mint
+      "#F6F5AE", // pale yellow
+      "#C5D8A4", // sage
+    ];
+
     const NUM_SPHERES = 100;
     const spheres = [];
 
-    // Create spheres with random positions and velocities
+    // Create spheres with random pastel color, position, and velocity
     for (let i = 0; i < NUM_SPHERES; i++) {
-      const geometry = new THREE.SphereGeometry(0.05, 16, 16);
+      const geometry = new THREE.SphereGeometry(0.12, 24, 24); // bigger spheres
+      const color = new THREE.Color(pastelColors[i % pastelColors.length]);
       const material = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(0.4, 0.6, 1),
-        roughness: 0.5,
-        metalness: 0.3,
+        color,
+        roughness: 0.7,
+        metalness: 0.2,
         transparent: true,
-        opacity: 0.7,
+        opacity: 0.8,
       });
 
       const sphere = new THREE.Mesh(geometry, material);
@@ -43,9 +55,9 @@ const SphereBackground = () => {
 
       sphere.userData = {
         velocity: new THREE.Vector3(
-          (Math.random() - 0.5) * 0.01,
-          (Math.random() - 0.5) * 0.01,
-          (Math.random() - 0.5) * 0.01
+          (Math.random() - 0.5) * 0.015,
+          (Math.random() - 0.5) * 0.015,
+          (Math.random() - 0.5) * 0.015
         ),
       };
 
@@ -54,7 +66,7 @@ const SphereBackground = () => {
     }
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -83,27 +95,32 @@ const SphereBackground = () => {
       raycaster.ray.intersectPlane(planeZ, intersectPoint);
 
       spheres.forEach((sphere) => {
-        // Simple attraction force toward mouse intersection point
+        // Always apply a subtle attraction force (weakened with distance)
         const dir = intersectPoint.clone().sub(sphere.position);
         const dist = dir.length();
-        if (dist < 1.5) {
-          const force = dir.normalize().multiplyScalar(0.005 * (1.5 - dist));
+
+        // Make attraction radius bigger and smoother falloff
+        const attractionRadius = 3.0;
+        if (dist < attractionRadius) {
+          const strength = 0.008 * (1 - dist / attractionRadius);
+          const force = dir.normalize().multiplyScalar(strength);
           sphere.userData.velocity.add(force);
         }
 
         // Update position with velocity and apply damping
         sphere.position.add(sphere.userData.velocity);
-        sphere.userData.velocity.multiplyScalar(0.95);
+        sphere.userData.velocity.multiplyScalar(0.92);
 
-        // Keep spheres inside a box volume [-4,4], [-2.5,2.5], [-4,4]
+        // Keep spheres inside bounding box [-4,4], [-2.5,2.5], [-4,4]
         ["x", "y", "z"].forEach((axis) => {
-          if (sphere.position[axis] > (axis === "y" ? 2.5 : 4)) {
-            sphere.position[axis] = axis === "y" ? 2.5 : 4;
-            sphere.userData.velocity[axis] *= -1;
+          const maxBound = axis === "y" ? 2.5 : 4;
+          if (sphere.position[axis] > maxBound) {
+            sphere.position[axis] = maxBound;
+            sphere.userData.velocity[axis] *= -0.6; // softer bounce
           }
-          if (sphere.position[axis] < (axis === "y" ? -2.5 : -4)) {
-            sphere.position[axis] = axis === "y" ? -2.5 : -4;
-            sphere.userData.velocity[axis] *= -1;
+          if (sphere.position[axis] < -maxBound) {
+            sphere.position[axis] = -maxBound;
+            sphere.userData.velocity[axis] *= -0.6;
           }
         });
       });
