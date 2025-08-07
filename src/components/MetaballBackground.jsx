@@ -112,24 +112,23 @@ float metaballField(vec2 uv) {
 void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution.xy;
 
-  // Original blue-purple background gradient
+  // Blue-purple gradient background
   vec3 background = mix(vec3(0.2, 0.3, 0.8), vec3(0.6, 0.2, 0.9), uv.y);
 
-  // Metaball field calculation
   float field = metaballField(uv);
   float threshold = 1.0;
-  float edge = smoothstep(threshold - 0.1, threshold + 0.1, field);
 
-  // Matte metaball color
-  vec3 matteColor = vec3(0.9, 0.9, 0.95); // soft light gray-blue
+  // Sharp-edged mask
+  float edge = field > threshold ? 1.0 : 0.0;
 
-  // Translucency factor
+  // Matte color for metaballs
+  vec3 matteColor = vec3(0.9, 0.9, 0.95);
   float alpha = 0.35 * edge;
 
-  // Blend matte blob over background
+  // Blend matte blobs over gradient background
   vec3 finalColor = mix(background, matteColor, alpha);
 
-  gl_FragColor = vec4(finalColor, 1.0); // alpha blending already applied
+  gl_FragColor = vec4(finalColor, 1.0); // Final composited color
 }
 `;
 
