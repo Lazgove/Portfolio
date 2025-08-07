@@ -5,11 +5,12 @@ import Projects from './pages/Projects';
 import Contact from './pages/Contact';
 import { Element } from 'react-scroll';
 import MetaballBackground from './components/MetaballBackground'; // <-- 👈 Add this import
+import MovingCubesBackground from './components/MovingCubesBackground';
 
 export default function App() {
   return (
     <>
-      <MetaballBackground /> {/* 👈 Background canvas behind everything */}
+      <MovingCubesBackground  /> {/* 👈 Background canvas behind everything */}
       <Navbar />
       <main className="pt-20 relative z-10"> {/* Ensure content sits above canvas */}
         <Element name="home">
