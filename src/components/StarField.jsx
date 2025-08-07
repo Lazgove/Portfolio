@@ -27,7 +27,7 @@ const StarField = () => {
     const starsGroup = new THREE.Group();
     scene.add(starsGroup);
 
-    // Pastel base colors and yellow tint
+    // Pastel base colors with yellow tint
     const baseColors = [
       new THREE.Color(0xffc1cc),
       new THREE.Color(0xa0d8ef),
@@ -41,19 +41,6 @@ const StarField = () => {
       return color.clone().lerp(yellowTint, factor);
     }
 
-    // Create a glowing circle texture for sprites
-    const glowCanvas = document.createElement("canvas");
-    glowCanvas.width = 64;
-    glowCanvas.height = 64;
-    const ctx = glowCanvas.getContext("2d");
-    const gradient = ctx.createRadialGradient(32, 32, 2, 32, 32, 32);
-    gradient.addColorStop(0, "rgba(255, 255, 200, 1)");     // stronger inner glow (opacity 1)
-    gradient.addColorStop(0.2, "rgba(255, 255, 200, 0.6)"); // stronger middle glow
-    gradient.addColorStop(1, "rgba(255, 255, 200, 0)");     // fade out to transparent
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 64, 64);
-    const glowTexture = new THREE.CanvasTexture(glowCanvas);
-
     // Store star data
     const starsData = [];
 
@@ -61,12 +48,13 @@ const StarField = () => {
       const baseColor = baseColors[i % baseColors.length];
       const tintedColor = applyYellowTint(baseColor);
 
-      // Sphere mesh
-      const geometry = new THREE.SphereGeometry(0.1, 12, 12);
+      // Sphere mesh with emissive glow (no sprites)
+      const radius = 0.15 + Math.random() * 0.15; // random size between 0.15 and 0.3
+      const geometry = new THREE.SphereGeometry(radius, 16, 16);
       const material = new THREE.MeshStandardMaterial({
         color: tintedColor,
         emissive: tintedColor,
-        emissiveIntensity: 3,  // Increased emissive intensity for more glow
+        emissiveIntensity: 3,  // strong emissive glow
         roughness: 0.3,
         metalness: 0.5,
       });
@@ -78,31 +66,12 @@ const StarField = () => {
         (Math.random() - 0.5) * 30
       );
 
-      // Random scale between 0.15 and 0.3 for moderate star sizes
-      const baseScale = 0.15 + Math.random() * 0.15;
-      starMesh.scale.setScalar(baseScale);
-
       starsGroup.add(starMesh);
-
-      // Add a glowing sprite (billboard) for soft glow effect
-      const spriteMaterial = new THREE.SpriteMaterial({
-        map: glowTexture,
-        color: tintedColor,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        opacity: 0.8,  // increased glow opacity
-        depthWrite: false,
-      });
-      const glowSprite = new THREE.Sprite(spriteMaterial);
-      glowSprite.scale.set(baseScale * 3.5, baseScale * 3.5, 1); // larger glow size
-      glowSprite.position.copy(starMesh.position);
-      starsGroup.add(glowSprite);
 
       starsData.push({
         mesh: starMesh,
-        glow: glowSprite,
         originalPos: starMesh.position.clone(),
-        baseScale,
+        baseRadius: radius,
       });
     }
 
@@ -126,25 +95,23 @@ const StarField = () => {
 
       const repulsionRadius = 5;
 
-      starsData.forEach(({ mesh, glow, originalPos, baseScale }) => {
+      starsData.forEach(({ mesh, originalPos, baseRadius }) => {
         const distance = mesh.position.distanceTo(mousePos3D);
 
         if (distance < repulsionRadius) {
           const strength = 0.1 * (1 - distance / repulsionRadius);
           const dir = mesh.position.clone().sub(mousePos3D).normalize();
           mesh.position.add(dir.multiplyScalar(strength));
-          glow.position.copy(mesh.position);
         } else {
           mesh.position.lerp(originalPos, 0.02);
-          glow.position.lerp(originalPos, 0.02);
         }
 
         let scaleFactor = 1;
         if (distance < repulsionRadius) {
           scaleFactor = 1 + 0.5 * (1 - distance / repulsionRadius);
         }
-        mesh.scale.setScalar(baseScale * scaleFactor);
-        glow.scale.set(baseScale * 3.5 * scaleFactor, baseScale * 3.5 * scaleFactor, 1);
+
+        mesh.scale.setScalar(scaleFactor);
       });
 
       starsGroup.rotation.y += 0.0005;
