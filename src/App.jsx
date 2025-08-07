@@ -5,12 +5,12 @@ import Projects from './pages/Projects';
 import Contact from './pages/Contact';
 import { Element } from 'react-scroll';
 import MetaballBackground from './components/MetaballBackground'; // <-- 👈 Add this import
-import JellyMetaballsBackground from './components/JellyMetaballsBackground';
+import FloatingParticlesBackground from './components/FloatingParticlesBackground';
 
 export default function App() {
   return (
     <>
-      <JellyMetaballsBackground  /> {/* 👈 Background canvas behind everything */}
+      <FloatingParticlesBackground  /> {/* 👈 Background canvas behind everything */}
       <Navbar />
       <main className="pt-20 relative z-10"> {/* Ensure content sits above canvas */}
         <Element name="home">
