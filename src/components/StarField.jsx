@@ -1,81 +1,158 @@
-import React, { useRef, useMemo } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
-function Stars({ count = 600 }) {
-  const stars = useMemo(() => {
-    const temp = [];
-    for (let i = 0; i < count; i++) {
-      const radius = 15 + Math.random() * 15;
-      const theta = Math.random() * 2 * Math.PI;
-      const phi = Math.acos(2 * Math.random() - 1);
+const StarField = () => {
+  const mountRef = useRef(null);
 
-      const x = radius * Math.sin(phi) * Math.cos(theta);
-      const y = radius * Math.sin(phi) * Math.sin(theta);
-      const z = radius * Math.cos(phi);
+  useEffect(() => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-      const scale = 0.03 + Math.random() * 0.09;
+    // Scene, camera, renderer
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
 
-      const color = new THREE.Color(
-        0.9 + 0.1 * Math.random(),
-        0.85 + 0.15 * Math.random(),
-        0.6 + 0.4 * Math.random()
+    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    camera.position.z = 15;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(width, height);
+    renderer.setClearColor(0x000000, 1);
+    mountRef.current.appendChild(renderer.domElement);
+
+    // Postprocessing setup
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(width, height),
+      1.2,  // strength
+      0.6,  // radius
+      0.3   // threshold
+    );
+    composer.addPass(bloomPass);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    scene.add(ambientLight);
+
+    const NUM_STARS = 300;
+    const starsGroup = new THREE.Group();
+    scene.add(starsGroup);
+
+    const baseColors = [
+      new THREE.Color(0xffc1cc),
+      new THREE.Color(0xa0d8ef),
+      new THREE.Color(0xb9fbc0),
+      new THREE.Color(0xfff1a8),
+      new THREE.Color(0xd0bbff),
+    ];
+    const yellowTint = new THREE.Color(0xfff7cc);
+
+    function applyYellowTint(color, factor = 0.3) {
+      return color.clone().lerp(yellowTint, factor);
+    }
+
+    function varyColorBrightness(color) {
+      const hsl = {};
+      color.getHSL(hsl);
+      hsl.l = THREE.MathUtils.clamp(hsl.l * (0.85 + Math.random() * 0.3), 0, 1);
+      const newColor = new THREE.Color();
+      newColor.setHSL(hsl.h, hsl.s, hsl.l);
+      return newColor;
+    }
+
+    const starsData = [];
+
+    for (let i = 0; i < NUM_STARS; i++) {
+      const baseColor = baseColors[i % baseColors.length];
+      let tintedColor = applyYellowTint(baseColor);
+      tintedColor = varyColorBrightness(tintedColor);
+
+      const radius = 0.1 + Math.random() * 0.3;
+      const emissiveIntensity = 1 + Math.random() * 2;
+      const geometry = new THREE.SphereGeometry(radius, 16, 16);
+      const material = new THREE.MeshStandardMaterial({
+        color: tintedColor,
+        emissive: tintedColor,
+        emissiveIntensity: emissiveIntensity,
+        roughness: 0.3,
+        metalness: 0.5,
+      });
+      const starMesh = new THREE.Mesh(geometry, material);
+
+      starMesh.position.set(
+        (Math.random() - 0.5) * 30,
+        (Math.random() - 0.5) * 20,
+        (Math.random() - 0.5) * 30
       );
 
-      temp.push({ position: [x, y, z], scale, color });
+      starsGroup.add(starMesh);
+
+      starsData.push({
+        mesh: starMesh,
+        originalPos: starMesh.position.clone(),
+        baseRadius: radius,
+      });
     }
-    return temp;
-  }, [count]);
 
-  return (
-    <>
-      {stars.map(({ position, scale, color }, i) => (
-        <mesh key={i} position={position} scale={[scale, scale, scale]}>
-          <sphereGeometry args={[1, 8, 8]} />
-          <meshStandardMaterial
-            color={color}
-            emissive={color}
-            emissiveIntensity={0.7}
-            roughness={0.3}
-            metalness={0.2}
-          />
-        </mesh>
-      ))}
-    </>
-  );
-}
+    const mouse = new THREE.Vector2(0, 0);
 
-function StarField() {
-  const groupRef = useRef();
-
-  useFrame(() => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y += 0.0005;
-      groupRef.current.rotation.x += 0.0002;
+    function onMouseMove(event) {
+      mouse.x = (event.clientX / width) * 2 - 1;
+      mouse.y = -(event.clientY / height) * 2 + 1;
     }
-  });
+    window.addEventListener("mousemove", onMouseMove);
 
-  return (
-    <Canvas
-      camera={{ position: [0, 0, 40], fov: 60 }}
-      style={{ position: "fixed", inset: 0, zIndex: -1, background: "black" }}
-    >
-      <ambientLight intensity={0.3} />
-      <pointLight position={[10, 10, 10]} intensity={0.5} />
-      <group ref={groupRef}>
-        <Stars count={600} />
-      </group>
-      <EffectComposer>
-        <Bloom
-          luminanceThreshold={0.7}
-          luminanceSmoothing={0.3}
-          height={300}
-          intensity={0.3}
-        />
-      </EffectComposer>
-    </Canvas>
-  );
-}
+    const raycaster = new THREE.Raycaster();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      raycaster.setFromCamera(mouse, camera);
+      const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+      const mousePos3D = new THREE.Vector3();
+      raycaster.ray.intersectPlane(planeZ, mousePos3D);
+
+      const repulsionRadius = 5;
+
+      starsData.forEach(({ mesh, originalPos, baseRadius }) => {
+        const distance = mesh.position.distanceTo(mousePos3D);
+
+        if (distance < repulsionRadius) {
+          const strength = 0.1 * (1 - distance / repulsionRadius);
+          const dir = mesh.position.clone().sub(mousePos3D).normalize();
+          mesh.position.add(dir.multiplyScalar(strength));
+        } else {
+          mesh.position.lerp(originalPos, 0.02);
+        }
+
+        let scaleFactor = 1;
+        if (distance < repulsionRadius) {
+          scaleFactor = 1 + 0.5 * (1 - distance / repulsionRadius);
+        }
+
+        mesh.scale.setScalar(scaleFactor);
+      });
+
+      starsGroup.rotation.y += 0.0005;
+
+      // Use composer to render with bloom
+      composer.render();
+    }
+
+    animate();
+
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      mountRef.current.removeChild(renderer.domElement);
+      composer.dispose();
+    };
+  }, []);
+
+  return <div ref={mountRef} style={{ position: "fixed", inset: 0, zIndex: -1 }} />;
+};
 
 export default StarField;
