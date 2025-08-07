@@ -41,20 +41,32 @@ const StarField = () => {
       return color.clone().lerp(yellowTint, factor);
     }
 
+    // Helper to randomly adjust brightness of a color a bit (+/- 15%)
+    function varyColorBrightness(color) {
+      const hsl = {};
+      color.getHSL(hsl);
+      hsl.l = THREE.MathUtils.clamp(hsl.l * (0.85 + Math.random() * 0.3), 0, 1);
+      const newColor = new THREE.Color();
+      newColor.setHSL(hsl.h, hsl.s, hsl.l);
+      return newColor;
+    }
+
     // Store star data
     const starsData = [];
 
     for (let i = 0; i < NUM_STARS; i++) {
       const baseColor = baseColors[i % baseColors.length];
-      const tintedColor = applyYellowTint(baseColor);
+      let tintedColor = applyYellowTint(baseColor);
+      tintedColor = varyColorBrightness(tintedColor);
 
       // Sphere mesh with emissive glow (no sprites)
-      const radius = 0.15 + Math.random() * 0.15; // random size between 0.15 and 0.3
+      const radius = 0.1 + Math.random() * 0.3; // random size between 0.1 and 0.4
+      const emissiveIntensity = 1 + Math.random() * 2; // from 1 to 3 emissive intensity
       const geometry = new THREE.SphereGeometry(radius, 16, 16);
       const material = new THREE.MeshStandardMaterial({
         color: tintedColor,
         emissive: tintedColor,
-        emissiveIntensity: 3,  // strong emissive glow
+        emissiveIntensity: emissiveIntensity,
         roughness: 0.3,
         metalness: 0.5,
       });
