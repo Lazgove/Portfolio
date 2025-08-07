@@ -9,7 +9,9 @@
   "dependencies": {
     "@react-three/drei": "^9.56.14",
     "@react-three/fiber": "^8.13.5",
+    "@react-three/postprocessing": "^3.0.4",
     "framer-motion": "^12.23.12",
+    "postprocessing": "^6.37.7",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-parallax-tilt": "^1.7.304",
