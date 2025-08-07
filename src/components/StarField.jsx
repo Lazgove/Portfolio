@@ -14,7 +14,7 @@ const StarField = () => {
 
     // Camera setup
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.z = 5;
+    camera.position.z = 15;
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -22,39 +22,68 @@ const StarField = () => {
     renderer.setClearColor(0x000000, 1);
     mountRef.current.appendChild(renderer.domElement);
 
-    // Create stars
-    const NUM_STARS = 1000;
+    // Lighting for glow
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    scene.add(ambientLight);
 
-    // Positions array for BufferGeometry
-    const positions = new Float32Array(NUM_STARS * 3);
-    const sizes = new Float32Array(NUM_STARS);
+    // Star parameters
+    const NUM_STARS = 300;
+    const geometry = new THREE.SphereGeometry(0.1, 8, 8);
+    const starsGroup = new THREE.Group();
+    scene.add(starsGroup);
 
-    for (let i = 0; i < NUM_STARS; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 20; // x
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 12; // y
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 20; // z
-      sizes[i] = Math.random() * 1.5 + 0.5; // base size
+    // Base pastel colors
+    const baseColors = [
+      new THREE.Color(0xffc1cc), // pastel pink
+      new THREE.Color(0xa0d8ef), // pastel blue
+      new THREE.Color(0xb9fbc0), // pastel green
+      new THREE.Color(0xfff1a8), // pastel yellow
+      new THREE.Color(0xd0bbff), // pastel purple
+    ];
+
+    // Yellow tint color
+    const yellowTint = new THREE.Color(0xfff7cc);
+
+    // Helper to mix colors toward yellow tint (factor from 0 to 1)
+    function applyYellowTint(color, factor = 0.2) {
+      return color.clone().lerp(yellowTint, factor);
     }
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+    const starsData = [];
 
-    // Star material with size attenuation & alpha for subtle blur effect
-    const material = new THREE.PointsMaterial({
-      color: 0xffffff,
-      size: 0.15,
-      sizeAttenuation: true,
-      transparent: true,
-      opacity: 0.8,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
+    for (let i = 0; i < NUM_STARS; i++) {
+      // Apply yellow tint to each base color
+      const baseColor = baseColors[i % baseColors.length];
+      const tintedColor = applyYellowTint(baseColor, 0.3); // 30% yellow tint
 
-    const stars = new THREE.Points(geometry, material);
-    scene.add(stars);
+      const material = new THREE.MeshStandardMaterial({
+        color: tintedColor,
+        emissive: tintedColor,
+        emissiveIntensity: 0.7,
+        roughness: 0.3,
+        metalness: 0.5,
+      });
 
-    // Track mouse in normalized device coords
+      const star = new THREE.Mesh(geometry, material);
+
+      star.position.set(
+        (Math.random() - 0.5) * 30,
+        (Math.random() - 0.5) * 20,
+        (Math.random() - 0.5) * 30
+      );
+
+      const baseScale = 0.1 + Math.random() * 0.15;
+      star.scale.setScalar(baseScale);
+
+      starsGroup.add(star);
+
+      starsData.push({
+        mesh: star,
+        originalPos: star.position.clone(),
+        baseScale,
+      });
+    }
+
     const mouse = new THREE.Vector2(0, 0);
 
     function onMouseMove(event) {
@@ -63,82 +92,37 @@ const StarField = () => {
     }
     window.addEventListener("mousemove", onMouseMove);
 
-    // We'll convert mouse coords to 3D space on z=0 plane for interaction
     const raycaster = new THREE.Raycaster();
 
-    // Temporary vectors for calculations
-    const tempVec = new THREE.Vector3();
-    const starPos = new THREE.Vector3();
-
-    // Store original star positions for reference
-    const originalPositions = [];
-    for (let i = 0; i < NUM_STARS; i++) {
-      originalPositions.push(
-        new THREE.Vector3(
-          positions[i * 3],
-          positions[i * 3 + 1],
-          positions[i * 3 + 2]
-        )
-      );
-    }
-
-    // Animate loop
     function animate() {
       requestAnimationFrame(animate);
 
-      // Convert mouse to 3D world coordinate on z=0 plane
       raycaster.setFromCamera(mouse, camera);
       const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-      const intersectPoint = new THREE.Vector3();
-      raycaster.ray.intersectPlane(planeZ, intersectPoint);
+      const mousePos3D = new THREE.Vector3();
+      raycaster.ray.intersectPlane(planeZ, mousePos3D);
 
-      // Gradient radius for attraction
-      const attractionRadius = 4.0;
+      const repulsionRadius = 5;
 
-      // Update star positions with subtle attraction & blur (size) effect
-      for (let i = 0; i < NUM_STARS; i++) {
-        starPos.fromBufferAttribute(geometry.attributes.position, i);
-        const origPos = originalPositions[i];
+      starsData.forEach(({ mesh, originalPos, baseScale }) => {
+        const distance = mesh.position.distanceTo(mousePos3D);
 
-        const distance = starPos.distanceTo(intersectPoint);
-
-        if (distance < attractionRadius) {
-          // Calculate pull force: stronger closer to mouse
-          const strength = 0.02 * (1 - distance / attractionRadius);
-
-          // Direction vector from star to mouse point
-          const dir = intersectPoint.clone().sub(starPos).normalize();
-
-          // Move star slightly toward mouse
-          starPos.add(dir.multiplyScalar(strength));
+        if (distance < repulsionRadius) {
+          const strength = 0.1 * (1 - distance / repulsionRadius);
+          const dir = mesh.position.clone().sub(mousePos3D).normalize();
+          mesh.position.add(dir.multiplyScalar(strength));
         } else {
-          // Slowly move star back to original position when outside radius
-          starPos.lerp(origPos, 0.02);
+          mesh.position.lerp(originalPos, 0.02);
         }
 
-        // Update positions attribute
-        geometry.attributes.position.setXYZ(i, starPos.x, starPos.y, starPos.z);
-
-        // Update size attribute to simulate focus/blur
-        // Smaller size far from mouse, bigger near mouse
-        const baseSize = sizes[i];
-        let sizeFactor = 1.0;
-        if (distance < attractionRadius) {
-          sizeFactor = 1 + 0.7 * (1 - distance / attractionRadius);
-        } else {
-          sizeFactor = 1;
+        let scaleFactor = 1;
+        if (distance < repulsionRadius) {
+          scaleFactor = 1 + 0.5 * (1 - distance / repulsionRadius);
         }
-        geometry.attributes.size.setX(i, baseSize * sizeFactor);
-      }
+        mesh.scale.setScalar(baseScale * scaleFactor);
+      });
 
-      geometry.attributes.position.needsUpdate = true;
-      geometry.attributes.size.needsUpdate = true;
-
-      // Update material size to average size scaled by some factor (optional)
-      // material.size = 0.15;
-
-      // Slowly rotate the whole starfield for subtle dynamic
-      stars.rotation.y += 0.0002;
+      starsGroup.rotation.y += 0.0005;
 
       renderer.render(scene, camera);
     }
