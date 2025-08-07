@@ -3,7 +3,6 @@ import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { BokehPass } from "three/examples/jsm/postprocessing/BokehPass.js";
 
 const StarField = () => {
   const mountRef = useRef(null);
@@ -12,9 +11,35 @@ const StarField = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
-    // Scene, camera, renderer
+    function createNoiseTexture(texWidth = 256, texHeight = 256) {
+      const canvas = document.createElement("canvas");
+      canvas.width = texWidth;
+      canvas.height = texHeight;
+      const ctx = canvas.getContext("2d");
+
+      const gradient = ctx.createLinearGradient(0, 0, texWidth, texHeight);
+      gradient.addColorStop(0, "#0b1e3a"); // dark blue
+      gradient.addColorStop(0.5, "#0a2e2e"); // dark green
+      gradient.addColorStop(1, "#2a0b3a"); // dark purple
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, texWidth, texHeight);
+
+      const imageData = ctx.getImageData(0, 0, texWidth, texHeight);
+      const buffer = imageData.data;
+      for (let i = 0; i < buffer.length; i += 4) {
+        const noise = (Math.random() - 0.5) * 30;
+        buffer[i] = Math.min(255, Math.max(0, buffer[i] + noise));
+        buffer[i + 1] = Math.min(255, Math.max(0, buffer[i + 1] + noise));
+        buffer[i + 2] = Math.min(255, Math.max(0, buffer[i + 2] + noise));
+      }
+      ctx.putImageData(imageData, 0, 0);
+
+      return new THREE.CanvasTexture(canvas);
+    }
+
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0b1e); // Nebula-like deep background
+    scene.background = createNoiseTexture();
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     camera.position.z = 15;
@@ -24,40 +49,32 @@ const StarField = () => {
     renderer.setPixelRatio(window.devicePixelRatio);
     mountRef.current.appendChild(renderer.domElement);
 
-    // Postprocessing
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width, height),
-      0.4,  // strength
-      0.5,  // radius
-      0.2   // threshold
+      0.4, // strength
+      0.5, // radius
+      0.2  // threshold
     );
     composer.addPass(bloomPass);
 
-    const bokehPass = new BokehPass(scene, camera, {
-      focus: 15,         // Focus distance
-      aperture: 0.00025, // Depth of field intensity
-      maxblur: 0.015,    // Max blur radius
-    });
-    composer.addPass(bokehPass);
-
-    // Lights
+    // Ambient light
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
     scene.add(ambientLight);
 
-    // Stars
-    const NUM_STARS = 400;
+    // Stars setup (same as before)
+    const NUM_STARS = 300;
     const starsGroup = new THREE.Group();
     scene.add(starsGroup);
 
     const baseColors = [
-      new THREE.Color(0xffc1cc), // pastel pink
-      new THREE.Color(0xa0d8ef), // pastel blue
-      new THREE.Color(0xb9fbc0), // mint green
-      new THREE.Color(0xfff1a8), // pastel yellow
-      new THREE.Color(0xd0bbff), // soft purple
+      new THREE.Color(0xffc1cc),
+      new THREE.Color(0xa0d8ef),
+      new THREE.Color(0xb9fbc0),
+      new THREE.Color(0xfff1a8),
+      new THREE.Color(0xd0bbff),
     ];
     const yellowTint = new THREE.Color(0xfff7cc);
 
@@ -139,9 +156,10 @@ const StarField = () => {
           mesh.position.lerp(originalPos, 0.02);
         }
 
-        const scaleFactor = distance < repulsionRadius
-          ? 1 + 0.5 * (1 - distance / repulsionRadius)
-          : 1;
+        const scaleFactor =
+          distance < repulsionRadius
+            ? 1 + 0.5 * (1 - distance / repulsionRadius)
+            : 1;
         mesh.scale.setScalar(scaleFactor);
       });
 
