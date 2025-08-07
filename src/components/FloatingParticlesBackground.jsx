@@ -101,7 +101,7 @@ function Particles() {
       <pointsMaterial
         attach="material"
         color="#a8a8ff"
-        size={0.03}
+        size={0.3}
         sizeAttenuation={true}
         transparent={true}
         opacity={0.15}
