@@ -134,12 +134,34 @@ void main() {
   float field = metaballField(uv);
   float threshold = 1.0;
 
-  float edge = field > threshold ? 1.0 : 0.0;
+  // Main metaball edge (solid area)
+  float edge = step(threshold, field);
+
+  // Shadow effect: sample the field with a slightly larger radius by offsetting UV in all directions
+  float shadow = 0.0;
+  float shadowRadius = 0.03; // controls how far the shadow spreads
+
+  // Sample 8 directions around the current pixel for soft shadow
+  for (int i = 0; i < 8; i++) {
+    float angle = float(i) * 3.1415926 / 4.0;
+    vec2 offset = vec2(cos(angle), sin(angle)) * shadowRadius;
+    shadow += step(threshold, metaballField(uv + offset));
+  }
+
+  shadow = shadow / 8.0; // average shadow intensity around
+
+  // Make shadow visible only just outside the metaball edge, so exclude inside the ball
+  float shadowIntensity = smoothstep(0.0, 1.0, shadow) * (1.0 - edge);
 
   vec3 matteColor = vec3(0.9, 0.9, 0.95);
+  vec3 shadowColor = vec3(0.0, 0.0, 0.0);
+
   float alpha = 0.35 * edge;
 
+  // Combine shadow color with matte color blended by shadowIntensity
   vec3 finalColor = mix(background, matteColor, alpha);
+  finalColor = mix(finalColor, shadowColor, 0.15 * shadowIntensity); // subtle shadow
+
   gl_FragColor = vec4(finalColor, 1.0);
 }
 `;
