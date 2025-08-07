@@ -31,7 +31,7 @@ const StarField = () => {
       new THREE.Vector2(width, height),
       0.8,  // strength
       2.9,  // radius
-      0.3   // threshold
+      0.05   // threshold
     );
     composer.addPass(bloomPass);
 
@@ -71,7 +71,7 @@ const StarField = () => {
       let tintedColor = applyYellowTint(baseColor);
       tintedColor = varyColorBrightness(tintedColor);
 
-      const radius = 0.01 + Math.random() * 0.08;
+      const radius = 0.01 + Math.random() * 0.2;
       const emissiveIntensity = 1 + Math.random() * 2;
       const geometry = new THREE.SphereGeometry(radius, 16, 16);
       const material = new THREE.MeshStandardMaterial({
