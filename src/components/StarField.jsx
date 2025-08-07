@@ -29,8 +29,8 @@ const StarField = () => {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width, height),
-      1.2,  // strength
-      0.6,  // radius
+      0.3,  // strength
+      0.9,  // radius
       0.3   // threshold
     );
     composer.addPass(bloomPass);
