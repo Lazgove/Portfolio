@@ -31,7 +31,7 @@ const StarField = () => {
       new THREE.Vector2(width, height),
       0.3,  // strength
       0.9,  // radius
-      0.9   // threshold
+      0.1   // threshold
     );
     composer.addPass(bloomPass);
 
