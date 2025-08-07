@@ -43,17 +43,26 @@ const MetaballBackground = () => {
 
       blobs.forEach((b, i) => {
         b.pos.add(b.vel);
+
+        // Bounce off edges
         if (b.pos.x < 0 || b.pos.x > 1) b.vel.x *= -1;
         if (b.pos.y < 0 || b.pos.y > 1) b.vel.y *= -1;
 
+        // Mouse attraction: blobs pulled toward mouse if within 0.4 distance
         const dx = uniforms.u_mouse.value.x - b.pos.x;
         const dy = uniforms.u_mouse.value.y - b.pos.y;
         const dist = Math.sqrt(dx * dx + dy * dy) + 0.0001;
-        const pull = 0.00005 * Math.max(0, 0.4 - dist);
-        b.vel.x += (dx / dist) * pull;
-        b.vel.y += (dy / dist) * pull;
+        const attractionRadius = 0.4;
+        if (dist < attractionRadius) {
+          const pullStrength = 0.00005 * (attractionRadius - dist); // stronger pull when closer
+          b.vel.x += (dx / dist) * pullStrength;
+          b.vel.y += (dy / dist) * pullStrength;
+        }
 
+        // Friction to slow blobs gradually
         b.vel.multiplyScalar(0.98);
+
+        // Clamp position inside [0,1]
         b.pos.x = Math.max(0, Math.min(1, b.pos.x));
         b.pos.y = Math.max(0, Math.min(1, b.pos.y));
 
@@ -91,6 +100,7 @@ const MetaballBackground = () => {
   );
 };
 
+// Fragment shader with slow noise distortion per metaball and sharp edges
 const metaballFragmentShader = (numBlobs) => `
 precision highp float;
 
@@ -98,13 +108,36 @@ uniform vec2 u_resolution;
 uniform float u_time;
 uniform vec3 u_blobs[${numBlobs}];
 
+// 2D value noise by Inigo Quilez (iq)
+float hash(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 78.233);
+  return fract(p.x * p.y);
+}
+
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
+    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+    u.y
+  );
+}
+
 float metaballField(vec2 uv) {
   float field = 0.0;
   for (int i = 0; i < ${numBlobs}; i++) {
     vec2 blobPos = u_blobs[i].xy;
     float r = u_blobs[i].z;
+
+    // Add subtle slow noise distortion to radius
+    float n = noise(blobPos * 10.0 + vec2(u_time * 0.2, float(i)));
+    float distortedRadius = r * (0.9 + 0.2 * n);
+
     float d = distance(uv, blobPos);
-    field += (r * r) / (d * d + 0.001);
+    field += (distortedRadius * distortedRadius) / (d * d + 0.001);
   }
   return field;
 }
@@ -118,17 +151,15 @@ void main() {
   float field = metaballField(uv);
   float threshold = 1.0;
 
-  // Sharp-edged mask
+  // Sharp edges
   float edge = field > threshold ? 1.0 : 0.0;
 
-  // Matte color for metaballs
+  // Matte color and alpha for metaballs
   vec3 matteColor = vec3(0.9, 0.9, 0.95);
   float alpha = 0.35 * edge;
 
-  // Blend matte blobs over gradient background
   vec3 finalColor = mix(background, matteColor, alpha);
-
-  gl_FragColor = vec4(finalColor, 1.0); // Final composited color
+  gl_FragColor = vec4(finalColor, 1.0);
 }
 `;
 
