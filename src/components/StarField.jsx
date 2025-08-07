@@ -23,62 +23,86 @@ const StarField = () => {
     scene.add(ambientLight);
 
     const NUM_STARS = 300;
-    const geometry = new THREE.SphereGeometry(0.1, 12, 12);
+
     const starsGroup = new THREE.Group();
     scene.add(starsGroup);
 
+    // Pastel base colors and yellow tint
     const baseColors = [
-      new THREE.Color(0xffc1cc), // pastel pink
-      new THREE.Color(0xa0d8ef), // pastel blue
-      new THREE.Color(0xb9fbc0), // pastel green
-      new THREE.Color(0xfff1a8), // pastel yellow
-      new THREE.Color(0xd0bbff), // pastel purple
+      new THREE.Color(0xffc1cc),
+      new THREE.Color(0xa0d8ef),
+      new THREE.Color(0xb9fbc0),
+      new THREE.Color(0xfff1a8),
+      new THREE.Color(0xd0bbff),
     ];
-
     const yellowTint = new THREE.Color(0xfff7cc);
 
-    function applyYellowTint(color, factor = 0.2) {
+    function applyYellowTint(color, factor = 0.3) {
       return color.clone().lerp(yellowTint, factor);
     }
 
+    // Create a glowing circle texture for sprites
+    const glowCanvas = document.createElement("canvas");
+    glowCanvas.width = 64;
+    glowCanvas.height = 64;
+    const ctx = glowCanvas.getContext("2d");
+    const gradient = ctx.createRadialGradient(32, 32, 2, 32, 32, 32);
+    gradient.addColorStop(0, "rgba(255, 255, 200, 0.8)");
+    gradient.addColorStop(0.2, "rgba(255, 255, 200, 0.4)");
+    gradient.addColorStop(1, "rgba(255, 255, 200, 0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 64, 64);
+    const glowTexture = new THREE.CanvasTexture(glowCanvas);
+
+    // Store star data
     const starsData = [];
 
     for (let i = 0; i < NUM_STARS; i++) {
       const baseColor = baseColors[i % baseColors.length];
-      const tintedColor = applyYellowTint(baseColor, 0.3);
+      const tintedColor = applyYellowTint(baseColor);
 
+      // Sphere mesh
+      const geometry = new THREE.SphereGeometry(0.1, 12, 12);
       const material = new THREE.MeshStandardMaterial({
         color: tintedColor,
         emissive: tintedColor,
-        emissiveIntensity: 1.2,  // increased glow
+        emissiveIntensity: 1.5,
         roughness: 0.3,
         metalness: 0.5,
       });
+      const starMesh = new THREE.Mesh(geometry, material);
 
-      const star = new THREE.Mesh(geometry, material);
-
-      star.position.set(
+      starMesh.position.set(
         (Math.random() - 0.5) * 30,
         (Math.random() - 0.5) * 20,
         (Math.random() - 0.5) * 30
       );
 
-      // Random scale between 0.1 and 0.4 for bigger variety
+      // Random scale between 0.1 and 0.4
       const baseScale = 0.1 + Math.random() * 0.3;
-      star.scale.setScalar(baseScale);
+      starMesh.scale.setScalar(baseScale);
 
-      // Add a subtle point light for glow effect
-      const light = new THREE.PointLight(tintedColor, 0.3, 3);
-      light.position.copy(star.position);
-      scene.add(light);
+      starsGroup.add(starMesh);
 
-      starsGroup.add(star);
+      // Add a glowing sprite (billboard) for soft glow effect
+      const spriteMaterial = new THREE.SpriteMaterial({
+        map: glowTexture,
+        color: tintedColor,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        opacity: 0.6,
+        depthWrite: false,
+      });
+      const glowSprite = new THREE.Sprite(spriteMaterial);
+      glowSprite.scale.set(baseScale * 2.5, baseScale * 2.5, 1);
+      glowSprite.position.copy(starMesh.position);
+      starsGroup.add(glowSprite);
 
       starsData.push({
-        mesh: star,
-        originalPos: star.position.clone(),
+        mesh: starMesh,
+        glow: glowSprite,
+        originalPos: starMesh.position.clone(),
         baseScale,
-        light,
       });
     }
 
@@ -102,17 +126,17 @@ const StarField = () => {
 
       const repulsionRadius = 5;
 
-      starsData.forEach(({ mesh, originalPos, baseScale, light }) => {
+      starsData.forEach(({ mesh, glow, originalPos, baseScale }) => {
         const distance = mesh.position.distanceTo(mousePos3D);
 
         if (distance < repulsionRadius) {
           const strength = 0.1 * (1 - distance / repulsionRadius);
           const dir = mesh.position.clone().sub(mousePos3D).normalize();
           mesh.position.add(dir.multiplyScalar(strength));
-          light.position.copy(mesh.position);
+          glow.position.copy(mesh.position);
         } else {
           mesh.position.lerp(originalPos, 0.02);
-          light.position.lerp(originalPos, 0.02);
+          glow.position.lerp(originalPos, 0.02);
         }
 
         let scaleFactor = 1;
@@ -120,6 +144,7 @@ const StarField = () => {
           scaleFactor = 1 + 0.5 * (1 - distance / repulsionRadius);
         }
         mesh.scale.setScalar(baseScale * scaleFactor);
+        glow.scale.set(baseScale * 2.5 * scaleFactor, baseScale * 2.5 * scaleFactor, 1);
       });
 
       starsGroup.rotation.y += 0.0005;
