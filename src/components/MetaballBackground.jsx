@@ -17,7 +17,10 @@ const MetaballBackground = () => {
     const NUM_BLOBS = 8;
     const blobs = Array.from({ length: NUM_BLOBS }, () => ({
       pos: new THREE.Vector2(Math.random(), Math.random()),
-      vel: new THREE.Vector2((Math.random() - 0.5) * 0.002, (Math.random() - 0.5) * 0.002),
+      vel: new THREE.Vector2(
+        (Math.random() - 0.5) * 0.002,
+        (Math.random() - 0.5) * 0.002
+      ),
       radius: 0.1 + Math.random() * 0.05,
     }));
 
@@ -25,7 +28,7 @@ const MetaballBackground = () => {
       u_time: { value: 0 },
       u_mouse: { value: new THREE.Vector2(0.5, 0.5) },
       u_resolution: { value: new THREE.Vector2(width, height) },
-      u_blobs: { value: blobs.map(b => new THREE.Vector3(b.pos.x, b.pos.y, b.radius)) },
+      u_blobs: { value: blobs.map((b) => new THREE.Vector3(b.pos.x, b.pos.y, b.radius)) },
     };
 
     const geometry = new THREE.PlaneGeometry(2, 2);
@@ -44,25 +47,21 @@ const MetaballBackground = () => {
       blobs.forEach((b, i) => {
         b.pos.add(b.vel);
 
-        // Bounce off edges
         if (b.pos.x < 0 || b.pos.x > 1) b.vel.x *= -1;
         if (b.pos.y < 0 || b.pos.y > 1) b.vel.y *= -1;
 
-        // Mouse attraction: blobs pulled toward mouse if within 0.4 distance
         const dx = uniforms.u_mouse.value.x - b.pos.x;
         const dy = uniforms.u_mouse.value.y - b.pos.y;
         const dist = Math.sqrt(dx * dx + dy * dy) + 0.0001;
         const attractionRadius = 0.4;
         if (dist < attractionRadius) {
-          const pullStrength = 0.00005 * (attractionRadius - dist); // stronger pull when closer
+          const pullStrength = 0.00005 * (attractionRadius - dist);
           b.vel.x += (dx / dist) * pullStrength;
           b.vel.y += (dy / dist) * pullStrength;
         }
 
-        // Friction to slow blobs gradually
         b.vel.multiplyScalar(0.98);
 
-        // Clamp position inside [0,1]
         b.pos.x = Math.max(0, Math.min(1, b.pos.x));
         b.pos.y = Math.max(0, Math.min(1, b.pos.y));
 
@@ -100,7 +99,6 @@ const MetaballBackground = () => {
   );
 };
 
-// Fragment shader with slow noise distortion per metaball and sharp edges
 const metaballFragmentShader = (numBlobs) => `
 precision highp float;
 
@@ -108,22 +106,9 @@ uniform vec2 u_resolution;
 uniform float u_time;
 uniform vec3 u_blobs[${numBlobs}];
 
-// 2D value noise by Inigo Quilez (iq)
-float hash(vec2 p) {
-  p = fract(p * vec2(123.34, 456.21));
-  p += dot(p, p + 78.233);
-  return fract(p.x * p.y);
-}
-
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(
-    mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
-    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
-    u.y
-  );
+// Simple 1D noise based on sine for smooth blob distortion
+float blobNoise(float x) {
+  return 0.5 + 0.5 * sin(x);
 }
 
 float metaballField(vec2 uv) {
@@ -132,9 +117,8 @@ float metaballField(vec2 uv) {
     vec2 blobPos = u_blobs[i].xy;
     float r = u_blobs[i].z;
 
-    // Add subtle slow noise distortion to radius
-    float n = noise(blobPos * 10.0 + vec2(u_time * 0.2, float(i)));
-    float distortedRadius = r * (0.9 + 0.2 * n);
+    float n = blobNoise(u_time * 0.5 + float(i) * 10.0); // Slow noise per blob
+    float distortedRadius = r * (0.85 + 0.3 * n);
 
     float d = distance(uv, blobPos);
     field += (distortedRadius * distortedRadius) / (d * d + 0.001);
@@ -145,16 +129,13 @@ float metaballField(vec2 uv) {
 void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution.xy;
 
-  // Blue-purple gradient background
   vec3 background = mix(vec3(0.2, 0.3, 0.8), vec3(0.6, 0.2, 0.9), uv.y);
 
   float field = metaballField(uv);
   float threshold = 1.0;
 
-  // Sharp edges
   float edge = field > threshold ? 1.0 : 0.0;
 
-  // Matte color and alpha for metaballs
   vec3 matteColor = vec3(0.9, 0.9, 0.95);
   float alpha = 0.35 * edge;
 
