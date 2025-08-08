@@ -1,4 +1,3 @@
-// OceanScene.jsx
 import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 
@@ -16,8 +15,8 @@ const OceanScene = () => {
     const scene = new THREE.Scene();
 
     // Camera
-    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 500);
-    camera.position.z = 10;
+    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    camera.position.set(0, 0, 10);
     cameraRef.current = camera;
 
     // Renderer
@@ -26,17 +25,19 @@ const OceanScene = () => {
     renderer.setPixelRatio(window.devicePixelRatio);
     mountRef.current.appendChild(renderer.domElement);
 
-    // Lights
+    // Light
     const ambientLight = new THREE.AmbientLight(0x88bbff, 1.0);
     scene.add(ambientLight);
 
-    // 🎨 Gradient Background
+    // 🎨 Gradient Background Plane
     const gradientHeight = 300;
-    const gradientGeometry = new THREE.PlaneGeometry(100, gradientHeight);
+    const gradientWidth = 200;
+
+    const gradientGeometry = new THREE.PlaneGeometry(gradientWidth, gradientHeight);
     const gradientMaterial = new THREE.ShaderMaterial({
       uniforms: {
-        topColor: { value: new THREE.Color("#64c0ff") },
-        bottomColor: { value: new THREE.Color("#000000") },
+        topColor: { value: new THREE.Color("#64c0ff") }, // Light blue
+        bottomColor: { value: new THREE.Color("#000000") }, // Black
       },
       vertexShader: `
         varying vec2 vUv;
@@ -50,7 +51,7 @@ const OceanScene = () => {
         uniform vec3 bottomColor;
         varying vec2 vUv;
         void main() {
-          vec3 color = mix(topColor, bottomColor, vUv.y);
+          vec3 color = mix(topColor, bottomColor, 1.0 - vUv.y);
           gl_FragColor = vec4(color, 1.0);
         }
       `,
@@ -59,11 +60,10 @@ const OceanScene = () => {
     });
 
     const gradientPlane = new THREE.Mesh(gradientGeometry, gradientMaterial);
-    gradientPlane.position.z = -50;
-    gradientPlane.position.y = -gradientHeight / 2 + 30;
+    gradientPlane.position.set(0, -gradientHeight / 2 + 50, -50); // push it far back
     scene.add(gradientPlane);
 
-    // 🚤 Submarine placeholder
+    // 🚤 Submarine (Cube)
     const subGeo = new THREE.BoxGeometry(1, 1, 3);
     const subMat = new THREE.MeshStandardMaterial({ color: 0xffcc00 });
     const submarine = new THREE.Mesh(subGeo, subMat);
@@ -71,14 +71,14 @@ const OceanScene = () => {
     scene.add(submarine);
 
     // 🌑 Seafloor
-    const floorGeo = new THREE.PlaneGeometry(100, 100);
+    const floorGeo = new THREE.PlaneGeometry(200, 100);
     const floorMat = new THREE.MeshStandardMaterial({ color: "#1f1f1f" });
     const seafloor = new THREE.Mesh(floorGeo, floorMat);
     seafloor.rotation.x = -Math.PI / 2;
     seafloor.position.y = -gradientHeight + 10;
     scene.add(seafloor);
 
-    // Scroll Tracking
+    // Scroll Handling
     const handleScroll = () => {
       scrollY = window.scrollY;
     };
@@ -90,14 +90,10 @@ const OceanScene = () => {
 
       const targetY = -scrollY * 0.015;
 
-      // Move submarine
-      if (submarineRef.current) {
+      // Move submarine + camera together
+      if (submarineRef.current && cameraRef.current) {
         submarineRef.current.position.y = targetY;
-      }
-
-      // Smooth camera follow
-      if (cameraRef.current) {
-        cameraRef.current.position.y += (targetY - cameraRef.current.position.y) * 0.05;
+        cameraRef.current.position.y = targetY;
       }
 
       renderer.render(scene, cameraRef.current);
