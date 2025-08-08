@@ -37,7 +37,7 @@ const OceanScene = () => {
     const gradientMaterial = new THREE.ShaderMaterial({
       uniforms: {
         topColor: { value: new THREE.Color("#64c0ff") }, // Light blue
-        bottomColor: { value: new THREE.Color("#000010") }, // Almost black
+        bottomColor: { value: new THREE.Color("#000010") }, // Dark bottom
       },
       vertexShader: `
         varying vec2 vUv;
@@ -51,7 +51,7 @@ const OceanScene = () => {
         uniform vec3 bottomColor;
         varying vec2 vUv;
         void main() {
-          // Gradient from topColor at top to bottomColor at bottom (vUv.y=0 bottom)
+          // Gradient from topColor at top (vUv.y = 1) to bottomColor at bottom (vUv.y = 0)
           vec3 color = mix(bottomColor, topColor, vUv.y);
           gl_FragColor = vec4(color, 1.0);
         }
@@ -60,13 +60,13 @@ const OceanScene = () => {
       depthWrite: false,
     });
     const gradientPlane = new THREE.Mesh(gradientGeometry, gradientMaterial);
-    gradientPlane.position.set(0, 0, -50); // Push far back so it’s behind everything
+    gradientPlane.position.set(0, 0, -50); // Push far back
     scene.add(gradientPlane);
 
-    // 🚤 Submarine (Cube)
-    const subGeo = new THREE.BoxGeometry(1, 1, 3);
-    const subMat = new THREE.MeshStandardMaterial({ color: 0xffcc00 });
-    const submarine = new THREE.Mesh(subGeo, subMat);
+    // ⚪ Submarine (Sphere)
+    const sphereGeometry = new THREE.SphereGeometry(0.8, 32, 32);
+    const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xffcc00 });
+    const submarine = new THREE.Mesh(sphereGeometry, sphereMaterial);
     submarineRef.current = submarine;
     scene.add(submarine);
 
@@ -75,7 +75,7 @@ const OceanScene = () => {
     const floorMat = new THREE.MeshStandardMaterial({ color: "#223366" });
     const seafloor = new THREE.Mesh(floorGeo, floorMat);
     seafloor.rotation.x = -Math.PI / 2;
-    seafloor.position.y = -height / 2 - 50; // Place below the visible area
+    seafloor.position.y = -height / 2 - 50;
     scene.add(seafloor);
 
     // Scroll Handling
@@ -93,9 +93,7 @@ const OceanScene = () => {
 
       if (submarineRef.current && cameraRef.current) {
         submarineRef.current.position.set(0, targetY, 0);
-        cameraRef.current.position.set(0, targetY + 5, 15); // Camera slightly above sub
-
-        // Camera looks slightly down toward submarine
+        cameraRef.current.position.set(0, targetY + 5, 15);
         cameraRef.current.lookAt(0, targetY, 0);
       }
 
