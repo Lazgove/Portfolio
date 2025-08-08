@@ -1,3 +1,4 @@
+// components/OceanScene.jsx
 import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 
@@ -5,6 +6,8 @@ const OceanScene = () => {
   const mountRef = useRef(null);
   const sphereRef = useRef(null);
   const cameraRef = useRef(null);
+  const bubbles = [];
+  const fishGroup = new THREE.Group();
 
   useEffect(() => {
     const width = window.innerWidth;
@@ -35,8 +38,8 @@ const OceanScene = () => {
     const gradientGeometry = new THREE.PlaneGeometry(width, scrollHeight);
     const gradientMaterial = new THREE.ShaderMaterial({
       uniforms: {
-        topColor: { value: new THREE.Color("#64c0ff") }, // Light blue
-        bottomColor: { value: new THREE.Color("#000010") }, // Dark blue-black
+        topColor: { value: new THREE.Color("#64c0ff") },
+        bottomColor: { value: new THREE.Color("#000010") },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -76,7 +79,32 @@ const OceanScene = () => {
     seafloor.position.y = -scrollHeight / 2 - 100;
     scene.add(seafloor);
 
-    // Handle scroll
+    // 🫧 Bubbles
+    const createBubble = () => {
+      const geo = new THREE.SphereGeometry(0.05, 8, 8);
+      const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
+      const bubble = new THREE.Mesh(geo, mat);
+      bubble.position.set((Math.random() - 0.5) * 5, -scrollHeight / 2 + 10, (Math.random() - 0.5) * 5);
+      scene.add(bubble);
+      bubbles.push(bubble);
+    };
+
+    for (let i = 0; i < 50; i++) createBubble();
+
+    // 🐟 Fish
+    const createFish = () => {
+      const geo = new THREE.ConeGeometry(0.2, 0.6, 8);
+      const mat = new THREE.MeshStandardMaterial({ color: 0xff3344 });
+      const fish = new THREE.Mesh(geo, mat);
+      fish.rotation.z = Math.PI;
+      fish.position.set(Math.random() * 10 - 5, Math.random() * scrollHeight * -0.01, Math.random() * 5 - 2.5);
+      fishGroup.add(fish);
+    };
+
+    for (let i = 0; i < 20; i++) createFish();
+    scene.add(fishGroup);
+
+    // Scroll
     let scrollY = 0;
     const handleScroll = () => {
       scrollY = window.scrollY;
@@ -88,18 +116,28 @@ const OceanScene = () => {
       requestAnimationFrame(animate);
 
       const targetY = -scrollY * 0.01;
-
       if (sphereRef.current && cameraRef.current) {
         sphereRef.current.position.set(0, targetY, 0);
         cameraRef.current.position.set(0, targetY + 5, 15);
         cameraRef.current.lookAt(0, targetY, 0);
       }
 
+      // Animate bubbles
+      bubbles.forEach(b => {
+        b.position.y += 0.02;
+        if (b.position.y > 10) b.position.y = -scrollHeight / 2 + 10;
+      });
+
+      // Fish movement (parallax feel)
+      fishGroup.children.forEach(fish => {
+        fish.position.x += 0.01;
+        if (fish.position.x > 6) fish.position.x = -6;
+      });
+
       renderer.render(scene, cameraRef.current);
     };
     animate();
 
-    // Resize
     const handleResize = () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -107,7 +145,6 @@ const OceanScene = () => {
     };
     window.addEventListener("resize", handleResize);
 
-    // Cleanup
     return () => {
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleResize);
