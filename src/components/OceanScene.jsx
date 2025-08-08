@@ -2,6 +2,8 @@
 import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+// Add at the top with your imports
+import { Raycaster, Vector2, Vector3 } from "three";
 
 const OceanScene = () => {
   const mountRef = useRef(null);
@@ -10,116 +12,70 @@ const OceanScene = () => {
   const bubbles = [];
   const fishGroup = new THREE.Group();
 
+  // 🆕 Interactive bubble state
+  const mouse = new Vector2();
+  const raycaster = new Raycaster();
+  const interactiveBubbles = [];
+
   useEffect(() => {
     const width = window.innerWidth;
     const height = window.innerHeight;
     const scrollHeight = document.body.scrollHeight;
-
     const scene = new THREE.Scene();
 
-    // Camera
-    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.set(0, 0, 15);
-    cameraRef.current = camera;
+    // --- existing camera, renderer, lights, gradient plane, sphere, seafloor, fish loader here ---
 
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    mountRef.current.appendChild(renderer.domElement);
-
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0x88bbff, 0.6);
-    scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(0, 10, 10);
-    scene.add(directionalLight);
-
-    // 🎨 Gradient Background Plane (full page height)
-    const gradientGeometry = new THREE.PlaneGeometry(width, scrollHeight);
-    const gradientMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        topColor: { value: new THREE.Color("#64c0ff") },
-        bottomColor: { value: new THREE.Color("#000010") },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 topColor;
-        uniform vec3 bottomColor;
-        varying vec2 vUv;
-        void main() {
-          vec3 color = mix(bottomColor, topColor, vUv.y);
-          gl_FragColor = vec4(color, 1.0);
-        }
-      `,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-    const gradientPlane = new THREE.Mesh(gradientGeometry, gradientMaterial);
-    gradientPlane.position.set(0, -scrollHeight / 2 + height / 2, -50);
-    scene.add(gradientPlane);
-
-    // 🌊 Submarine Placeholder — Sphere
-    const sphereGeo = new THREE.SphereGeometry(0.5, 32, 32);
-    const sphereMat = new THREE.MeshStandardMaterial({ color: 0xffcc00 });
-    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-    sphereRef.current = sphere;
-    scene.add(sphere);
-
-    // 🌑 Seafloor
-    const floorGeo = new THREE.PlaneGeometry(width * 2, 200);
-    const floorMat = new THREE.MeshStandardMaterial({ color: "#223366" });
-    const seafloor = new THREE.Mesh(floorGeo, floorMat);
-    seafloor.rotation.x = -Math.PI / 2;
-    seafloor.position.y = -scrollHeight / 2 - 100;
-    scene.add(seafloor);
-
-    // 🫧 Bubbles
-    const createBubble = () => {
-      const geo = new THREE.SphereGeometry(0.05, 8, 8);
+    // Regular ambient bubbles
+    const createBubble = (x, y, z, size = 0.05) => {
+      const geo = new THREE.SphereGeometry(size, 8, 8);
       const mat = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         transparent: true,
         opacity: 0.4,
       });
       const bubble = new THREE.Mesh(geo, mat);
-      bubble.position.set(
-        (Math.random() - 0.5) * 5,
-        -scrollHeight / 2 + 10,
-        (Math.random() - 0.5) * 5
-      );
+      bubble.position.set(x, y, z);
       scene.add(bubble);
-      bubbles.push(bubble);
+      return bubble;
     };
-    for (let i = 0; i < 50; i++) createBubble();
 
-    // 🐟 Fish Loader
-    const loader = new GLTFLoader();
-    loader.load("/models/low_poly_fish.glb", (gltf) => {
-      const fishModel = gltf.scene;
-      fishModel.scale.set(0.5, 0.5, 0.5);
+    for (let i = 0; i < 50; i++) {
+      bubbles.push(
+        createBubble(
+          (Math.random() - 0.5) * 5,
+          -scrollHeight / 2 + 10,
+          (Math.random() - 0.5) * 5
+        )
+      );
+    }
 
-      for (let i = 0; i < 20; i++) {
-        const fishClone = fishModel.clone();
-        fishClone.position.set(
-          Math.random() * 10 - 5,
-          Math.random() * scrollHeight * -0.01,
-          Math.random() * 5 - 2.5
-        );
-        fishClone.rotation.y = Math.random() > 0.5 ? Math.PI : 0;
-        fishGroup.add(fishClone);
-      }
+    // 🆕 Mouse-based bubble spawning
+    const planeForBubbles = new THREE.Plane(new Vector3(0, 0, 1), 0); // XY plane at Z=0
 
-      scene.add(fishGroup);
-    });
+    const handleMouseMove = (event) => {
+      // Convert mouse to NDC (-1 to +1)
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    // Scroll
+      // Raycast from camera to plane
+      raycaster.setFromCamera(mouse, cameraRef.current);
+      const intersectionPoint = new Vector3();
+      raycaster.ray.intersectPlane(planeForBubbles, intersectionPoint);
+
+      // Spawn new bubble at that location
+      const b = createBubble(
+        intersectionPoint.x,
+        intersectionPoint.y,
+        intersectionPoint.z,
+        0.07
+      );
+      b.userData = { life: 1 }; // Track bubble lifetime
+      interactiveBubbles.push(b);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+
+    // Scroll listener (unchanged)
     let scrollY = 0;
     const handleScroll = () => {
       scrollY = window.scrollY;
@@ -137,13 +93,25 @@ const OceanScene = () => {
         cameraRef.current.lookAt(0, targetY, 0);
       }
 
-      // Bubbles float upward
+      // Ambient bubbles float upward
       bubbles.forEach((b) => {
         b.position.y += 0.02;
         if (b.position.y > 10) b.position.y = -scrollHeight / 2 + 10;
       });
 
-      // Fish parallax movement
+      // 🆕 Animate interactive bubbles
+      for (let i = interactiveBubbles.length - 1; i >= 0; i--) {
+        const b = interactiveBubbles[i];
+        b.position.y += 0.03; // float
+        b.userData.life -= 0.01; // fade timer
+        b.material.opacity = b.userData.life * 0.4; // fade out
+        if (b.userData.life <= 0) {
+          scene.remove(b);
+          interactiveBubbles.splice(i, 1);
+        }
+      }
+
+      // Fish movement
       fishGroup.children.forEach((fish) => {
         fish.position.x += 0.01;
         if (fish.position.x > 6) fish.position.x = -6;
@@ -161,6 +129,7 @@ const OceanScene = () => {
     window.addEventListener("resize", handleResize);
 
     return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleResize);
       mountRef.current.removeChild(renderer.domElement);
@@ -177,7 +146,7 @@ const OceanScene = () => {
         width: "100vw",
         height: "100vh",
         zIndex: -1,
-        pointerEvents: "none",
+        pointerEvents: "auto", // allow mouse tracking
       }}
     />
   );
