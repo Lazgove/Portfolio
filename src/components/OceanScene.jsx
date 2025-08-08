@@ -5,6 +5,8 @@ import * as THREE from "three";
 const OceanScene = () => {
   const mountRef = useRef(null);
   const submarineRef = useRef(null);
+  const cameraRef = useRef(null);
+
   let scrollY = 0;
 
   useEffect(() => {
@@ -12,25 +14,29 @@ const OceanScene = () => {
     const height = window.innerHeight;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog("#000000", 30, 150);
 
-    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 200);
+    // Camera
+    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 500);
     camera.position.z = 10;
+    cameraRef.current = camera;
 
+    // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
     mountRef.current.appendChild(renderer.domElement);
 
+    // Lights
     const ambientLight = new THREE.AmbientLight(0x88bbff, 1.0);
     scene.add(ambientLight);
 
-    // 🌊 Gradient Background
-    const bgGeometry = new THREE.PlaneGeometry(40, 200);
-    const bgMaterial = new THREE.ShaderMaterial({
+    // 🎨 Gradient Background
+    const gradientHeight = 300;
+    const gradientGeometry = new THREE.PlaneGeometry(100, gradientHeight);
+    const gradientMaterial = new THREE.ShaderMaterial({
       uniforms: {
-        topColor: { value: new THREE.Color("#64c0ff") },    // Light blue
-        bottomColor: { value: new THREE.Color("#000000") }, // Deep black
+        topColor: { value: new THREE.Color("#64c0ff") },
+        bottomColor: { value: new THREE.Color("#000000") },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -48,13 +54,14 @@ const OceanScene = () => {
           gl_FragColor = vec4(color, 1.0);
         }
       `,
-      side: THREE.FrontSide,
+      side: THREE.DoubleSide,
       depthWrite: false,
     });
-    const bgPlane = new THREE.Mesh(bgGeometry, bgMaterial);
-    bgPlane.position.z = -20;
-    bgPlane.position.y = -50; // Lower to cover full scroll range
-    scene.add(bgPlane);
+
+    const gradientPlane = new THREE.Mesh(gradientGeometry, gradientMaterial);
+    gradientPlane.position.z = -50;
+    gradientPlane.position.y = -gradientHeight / 2 + 30;
+    scene.add(gradientPlane);
 
     // 🚤 Submarine placeholder
     const subGeo = new THREE.BoxGeometry(1, 1, 3);
@@ -68,26 +75,32 @@ const OceanScene = () => {
     const floorMat = new THREE.MeshStandardMaterial({ color: "#1f1f1f" });
     const seafloor = new THREE.Mesh(floorGeo, floorMat);
     seafloor.rotation.x = -Math.PI / 2;
-    seafloor.position.y = -100;
+    seafloor.position.y = -gradientHeight + 10;
     scene.add(seafloor);
 
-    // 🖱️ Scroll tracking
+    // Scroll Tracking
     const handleScroll = () => {
       scrollY = window.scrollY;
     };
     window.addEventListener("scroll", handleScroll);
 
-    // 🌀 Animation
+    // Animation Loop
     const animate = () => {
       requestAnimationFrame(animate);
 
-      const scrollDepth = scrollY * 0.01; // MUCH slower descent
+      const targetY = -scrollY * 0.015;
+
+      // Move submarine
       if (submarineRef.current) {
-        submarineRef.current.position.y = -scrollDepth;
-        submarineRef.current.rotation.z = Math.sin(scrollDepth * 0.5) * 0.05;
+        submarineRef.current.position.y = targetY;
       }
 
-      renderer.render(scene, camera);
+      // Smooth camera follow
+      if (cameraRef.current) {
+        cameraRef.current.position.y += (targetY - cameraRef.current.position.y) * 0.05;
+      }
+
+      renderer.render(scene, cameraRef.current);
     };
     animate();
 
