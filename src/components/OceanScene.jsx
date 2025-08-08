@@ -8,9 +8,9 @@ const OceanScene = () => {
   const sphereRef = useRef(null);
   const cameraRef = useRef(null);
   const bubbles = [];
+  const fishData = []; // store fish mesh + velocity
   const fishGroup = new THREE.Group();
-  const mouse = new THREE.Vector2();
-  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2(0, 0);
 
   useEffect(() => {
     const width = window.innerWidth;
@@ -25,7 +25,7 @@ const OceanScene = () => {
     cameraRef.current = camera;
 
     // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
     mountRef.current.appendChild(renderer.domElement);
@@ -37,7 +37,7 @@ const OceanScene = () => {
     directionalLight.position.set(0, 10, 10);
     scene.add(directionalLight);
 
-    // Gradient Background
+    // 🎨 Gradient Background Plane
     const gradientGeometry = new THREE.PlaneGeometry(width, scrollHeight);
     const gradientMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -67,14 +67,14 @@ const OceanScene = () => {
     gradientPlane.position.set(0, -scrollHeight / 2 + height / 2, -50);
     scene.add(gradientPlane);
 
-    // Sphere (submarine placeholder)
+    // 🌊 Submarine Placeholder — Sphere
     const sphereGeo = new THREE.SphereGeometry(0.5, 32, 32);
     const sphereMat = new THREE.MeshStandardMaterial({ color: 0xffcc00 });
     const sphere = new THREE.Mesh(sphereGeo, sphereMat);
     sphereRef.current = sphere;
     scene.add(sphere);
 
-    // Seafloor
+    // 🌑 Seafloor
     const floorGeo = new THREE.PlaneGeometry(width * 2, 200);
     const floorMat = new THREE.MeshStandardMaterial({ color: "#223366" });
     const seafloor = new THREE.Mesh(floorGeo, floorMat);
@@ -82,8 +82,8 @@ const OceanScene = () => {
     seafloor.position.y = -scrollHeight / 2 - 100;
     scene.add(seafloor);
 
-    // Static bubbles
-    const createBubble = (x, y, z) => {
+    // 🫧 Bubbles
+    const createBubble = () => {
       const geo = new THREE.SphereGeometry(0.05, 8, 8);
       const mat = new THREE.MeshStandardMaterial({
         color: 0xffffff,
@@ -91,72 +91,115 @@ const OceanScene = () => {
         opacity: 0.4,
       });
       const bubble = new THREE.Mesh(geo, mat);
-      bubble.position.set(x, y, z);
-      bubble.userData.velocity = new THREE.Vector3(
-        (Math.random() - 0.5) * 0.002,
-        0.01 + Math.random() * 0.01,
-        (Math.random() - 0.5) * 0.002
-      );
-      scene.add(bubble);
-      bubbles.push(bubble);
-    };
-
-    for (let i = 0; i < 50; i++) {
-      createBubble(
+      bubble.position.set(
         (Math.random() - 0.5) * 5,
         -scrollHeight / 2 + 10,
         (Math.random() - 0.5) * 5
       );
-    }
-
-    // Mouse move => create bubbles at mouse position
-    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-    const mousePos3D = new THREE.Vector3();
-
-    const handleMouseMove = (event) => {
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-      raycaster.ray.intersectPlane(plane, mousePos3D);
-
-      // spawn multiple small bubbles each move
-      for (let i = 0; i < 2; i++) {
-        createBubble(
-          mousePos3D.x + (Math.random() - 0.5) * 0.2,
-          mousePos3D.y + (Math.random() - 0.5) * 0.2,
-          mousePos3D.z
-        );
-      }
+      scene.add(bubble);
+      bubbles.push(bubble);
     };
-    window.addEventListener("mousemove", handleMouseMove);
+    for (let i = 0; i < 50; i++) createBubble();
 
-    // Fish
+    // 🐟 Load Fish Model
     const loader = new GLTFLoader();
     loader.load("/models/low_poly_fish.glb", (gltf) => {
       const fishModel = gltf.scene;
       fishModel.scale.set(0.5, 0.5, 0.5);
 
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < 30; i++) {
         const fishClone = fishModel.clone();
         fishClone.position.set(
           Math.random() * 10 - 5,
-          Math.random() * scrollHeight * -0.01,
+          Math.random() * -10,
           Math.random() * 5 - 2.5
         );
         fishClone.rotation.y = Math.random() > 0.5 ? Math.PI : 0;
+
+        // Give each fish an initial velocity
+        const velocity = new THREE.Vector3(
+          (Math.random() - 0.5) * 0.05,
+          (Math.random() - 0.5) * 0.05,
+          (Math.random() - 0.5) * 0.05
+        );
+
+        fishData.push({ mesh: fishClone, velocity });
         fishGroup.add(fishClone);
       }
 
       scene.add(fishGroup);
     });
 
-    // Scroll handling
+    // Mouse move → update vector
+    window.addEventListener("mousemove", (e) => {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    });
+
+    // Scroll tracking
     let scrollY = 0;
-    const handleScroll = () => {
+    window.addEventListener("scroll", () => {
       scrollY = window.scrollY;
+    });
+
+    // Boids + mouse avoidance update
+    const updateFish = () => {
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, cameraRef.current);
+      const mousePos3D = new THREE.Vector3();
+      raycaster.ray.at(10, mousePos3D); // project mouse into scene
+
+      const perceptionRadius = 2;
+      const mouseAvoidRadius = 3;
+
+      fishData.forEach((fish, i) => {
+        let alignment = new THREE.Vector3();
+        let cohesion = new THREE.Vector3();
+        let separation = new THREE.Vector3();
+        let total = 0;
+
+        fishData.forEach((other, j) => {
+          if (i === j) return;
+          const dist = fish.mesh.position.distanceTo(other.mesh.position);
+          if (dist < perceptionRadius) {
+            alignment.add(other.velocity);
+            cohesion.add(other.mesh.position);
+            separation.add(
+              fish.mesh.position.clone().sub(other.mesh.position).divideScalar(dist)
+            );
+            total++;
+          }
+        });
+
+        if (total > 0) {
+          alignment.divideScalar(total).setLength(0.02);
+          cohesion.divideScalar(total).sub(fish.mesh.position).setLength(0.01);
+          separation.divideScalar(total).setLength(0.03);
+
+          fish.velocity.add(alignment).add(cohesion).add(separation);
+        }
+
+        // Mouse avoidance
+        const distToMouse = fish.mesh.position.distanceTo(mousePos3D);
+        if (distToMouse < mouseAvoidRadius) {
+          const avoidDir = fish.mesh.position
+            .clone()
+            .sub(mousePos3D)
+            .normalize()
+            .multiplyScalar(0.05);
+          fish.velocity.add(avoidDir);
+        }
+
+        // Limit speed
+        fish.velocity.clampLength(0.01, 0.05);
+
+        // Apply velocity
+        fish.mesh.position.add(fish.velocity);
+
+        // Face direction of travel
+        fish.mesh.lookAt(fish.mesh.position.clone().add(fish.velocity));
+      });
     };
-    window.addEventListener("scroll", handleScroll);
 
     // Animate
     const animate = () => {
@@ -169,19 +212,14 @@ const OceanScene = () => {
         cameraRef.current.lookAt(0, targetY, 0);
       }
 
-      // Bubble motion
+      // Bubble float
       bubbles.forEach((b) => {
-        b.position.add(b.userData.velocity);
-        if (b.position.y > 10) {
-          b.position.y = -scrollHeight / 2 + 10;
-        }
+        b.position.y += 0.02;
+        if (b.position.y > 10) b.position.y = -scrollHeight / 2 + 10;
       });
 
-      // Fish swimming
-      fishGroup.children.forEach((fish) => {
-        fish.position.x += 0.01;
-        if (fish.position.x > 6) fish.position.x = -6;
-      });
+      // Update fish boids
+      updateFish();
 
       renderer.render(scene, cameraRef.current);
     };
@@ -196,8 +234,6 @@ const OceanScene = () => {
     window.addEventListener("resize", handleResize);
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("resize", handleResize);
       mountRef.current.removeChild(renderer.domElement);
     };
