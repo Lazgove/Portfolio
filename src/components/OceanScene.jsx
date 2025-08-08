@@ -16,7 +16,7 @@ const OceanScene = () => {
 
     // Camera
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.set(0, 0, 10);
+    camera.position.set(0, 0, 15);
     cameraRef.current = camera;
 
     // Renderer
@@ -29,15 +29,14 @@ const OceanScene = () => {
     const ambientLight = new THREE.AmbientLight(0x88bbff, 1.0);
     scene.add(ambientLight);
 
-    // 🎨 Gradient Background Plane
-    const gradientHeight = 300;
-    const gradientWidth = 200;
+    // 🎨 Gradient Background Plane - covers full width and scroll height
+    const scrollHeight = document.body.scrollHeight;
 
-    const gradientGeometry = new THREE.PlaneGeometry(gradientWidth, gradientHeight);
+    const gradientGeometry = new THREE.PlaneGeometry(width, scrollHeight);
     const gradientMaterial = new THREE.ShaderMaterial({
       uniforms: {
         topColor: { value: new THREE.Color("#64c0ff") }, // Light blue
-        bottomColor: { value: new THREE.Color("#000000") }, // Black
+        bottomColor: { value: new THREE.Color("#000010") }, // Almost black
       },
       vertexShader: `
         varying vec2 vUv;
@@ -51,7 +50,8 @@ const OceanScene = () => {
         uniform vec3 bottomColor;
         varying vec2 vUv;
         void main() {
-          vec3 color = mix(topColor, bottomColor, 1.0 - vUv.y);
+          // gradient from topColor at top (vUv.y=1) to bottomColor at bottom (vUv.y=0)
+          vec3 color = mix(bottomColor, topColor, vUv.y);
           gl_FragColor = vec4(color, 1.0);
         }
       `,
@@ -60,7 +60,8 @@ const OceanScene = () => {
     });
 
     const gradientPlane = new THREE.Mesh(gradientGeometry, gradientMaterial);
-    gradientPlane.position.set(0, -gradientHeight / 2 + 50, -50); // push it far back
+    // position so top aligns with y=0, and bottom is at -scrollHeight
+    gradientPlane.position.set(0, -scrollHeight / 2 + height / 2, -50);
     scene.add(gradientPlane);
 
     // 🚤 Submarine (Cube)
@@ -70,12 +71,12 @@ const OceanScene = () => {
     submarineRef.current = submarine;
     scene.add(submarine);
 
-    // 🌑 Seafloor
-    const floorGeo = new THREE.PlaneGeometry(200, 100);
+    // 🌑 Seafloor (bottom plane)
+    const floorGeo = new THREE.PlaneGeometry(width, 200);
     const floorMat = new THREE.MeshStandardMaterial({ color: "#1f1f1f" });
     const seafloor = new THREE.Mesh(floorGeo, floorMat);
     seafloor.rotation.x = -Math.PI / 2;
-    seafloor.position.y = -gradientHeight + 10;
+    seafloor.position.y = -scrollHeight + 50;
     scene.add(seafloor);
 
     // Scroll Handling
@@ -84,16 +85,35 @@ const OceanScene = () => {
     };
     window.addEventListener("scroll", handleScroll);
 
+    // Resize Handling
+    const handleResize = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+
+      // Update gradient plane and floor size & position
+      gradientPlane.geometry.dispose();
+      gradientPlane.geometry = new THREE.PlaneGeometry(w, document.body.scrollHeight);
+      gradientPlane.position.set(0, -document.body.scrollHeight / 2 + h / 2, -50);
+
+      floorGeo.dispose();
+      seafloor.geometry.dispose();
+      seafloor.geometry = new THREE.PlaneGeometry(w, 200);
+      seafloor.position.y = -document.body.scrollHeight + 50;
+    };
+    window.addEventListener("resize", handleResize);
+
     // Animation Loop
     const animate = () => {
       requestAnimationFrame(animate);
 
-      const targetY = -scrollY * 0.015;
+      const targetY = -scrollY;
 
-      // Move submarine + camera together
       if (submarineRef.current && cameraRef.current) {
-        submarineRef.current.position.y = targetY;
-        cameraRef.current.position.y = targetY;
+        submarineRef.current.position.set(0, targetY, 0);
+        cameraRef.current.position.set(0, targetY, 15);
       }
 
       renderer.render(scene, cameraRef.current);
@@ -103,11 +123,25 @@ const OceanScene = () => {
     // Cleanup
     return () => {
       window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
       mountRef.current.removeChild(renderer.domElement);
     };
   }, []);
 
-  return <div ref={mountRef} style={{ position: "fixed", inset: 0, zIndex: -1 }} />;
+  return (
+    <div
+      ref={mountRef}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        zIndex: -1,
+        pointerEvents: "none",
+      }}
+    />
+  );
 };
 
 export default OceanScene;
