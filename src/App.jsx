@@ -5,12 +5,12 @@ import Projects from './pages/Projects';
 import Contact from './pages/Contact';
 import { Element } from 'react-scroll';
 import MetaballBackground from './components/MetaballBackground'; // <-- 👈 Add this import
-import StarField from './components/StarField';
+import OceanScene from './components/OceanScene';
 
 export default function App() {
   return (
     <>
-      <StarField  /> {/* 👈 Background canvas behind everything */}
+      <OceanScene  /> {/* 👈 Background canvas behind everything */}
       <Navbar />
       <main className="pt-20 relative z-10"> {/* Ensure content sits above canvas */}
         <Element name="home">
