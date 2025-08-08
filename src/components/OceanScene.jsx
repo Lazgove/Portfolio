@@ -1,6 +1,7 @@
 // components/OceanScene.jsx
 import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
 const OceanScene = () => {
   const mountRef = useRef(null);
@@ -82,27 +83,41 @@ const OceanScene = () => {
     // 🫧 Bubbles
     const createBubble = () => {
       const geo = new THREE.SphereGeometry(0.05, 8, 8);
-      const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.4,
+      });
       const bubble = new THREE.Mesh(geo, mat);
-      bubble.position.set((Math.random() - 0.5) * 5, -scrollHeight / 2 + 10, (Math.random() - 0.5) * 5);
+      bubble.position.set(
+        (Math.random() - 0.5) * 5,
+        -scrollHeight / 2 + 10,
+        (Math.random() - 0.5) * 5
+      );
       scene.add(bubble);
       bubbles.push(bubble);
     };
-
     for (let i = 0; i < 50; i++) createBubble();
 
-    // 🐟 Fish
-    const createFish = () => {
-      const geo = new THREE.ConeGeometry(0.2, 0.6, 8);
-      const mat = new THREE.MeshStandardMaterial({ color: 0xff3344 });
-      const fish = new THREE.Mesh(geo, mat);
-      fish.rotation.z = Math.PI;
-      fish.position.set(Math.random() * 10 - 5, Math.random() * scrollHeight * -0.01, Math.random() * 5 - 2.5);
-      fishGroup.add(fish);
-    };
+    // 🐟 Fish Loader
+    const loader = new GLTFLoader();
+    loader.load("/models/low_poly_fish.glb", (gltf) => {
+      const fishModel = gltf.scene;
+      fishModel.scale.set(0.5, 0.5, 0.5);
 
-    for (let i = 0; i < 20; i++) createFish();
-    scene.add(fishGroup);
+      for (let i = 0; i < 20; i++) {
+        const fishClone = fishModel.clone();
+        fishClone.position.set(
+          Math.random() * 10 - 5,
+          Math.random() * scrollHeight * -0.01,
+          Math.random() * 5 - 2.5
+        );
+        fishClone.rotation.y = Math.random() > 0.5 ? Math.PI : 0;
+        fishGroup.add(fishClone);
+      }
+
+      scene.add(fishGroup);
+    });
 
     // Scroll
     let scrollY = 0;
@@ -122,14 +137,14 @@ const OceanScene = () => {
         cameraRef.current.lookAt(0, targetY, 0);
       }
 
-      // Animate bubbles
-      bubbles.forEach(b => {
+      // Bubbles float upward
+      bubbles.forEach((b) => {
         b.position.y += 0.02;
         if (b.position.y > 10) b.position.y = -scrollHeight / 2 + 10;
       });
 
-      // Fish movement (parallax feel)
-      fishGroup.children.forEach(fish => {
+      // Fish parallax movement
+      fishGroup.children.forEach((fish) => {
         fish.position.x += 0.01;
         if (fish.position.x > 6) fish.position.x = -6;
       });
