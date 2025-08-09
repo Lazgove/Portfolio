@@ -86,6 +86,14 @@ function Lights() {
   );
 }
 
+function FogEffect() {
+  const { scene } = useThree();
+  useEffect(() => {
+    scene.fog = new THREE.Fog(0x003366, 20, 80); // color, near, far
+  }, [scene]);
+  return null;
+}
+
 function DynamicFog() {
   const { scene, camera } = useThree();
   useFrame(() => {
@@ -108,13 +116,23 @@ export default function OceanScene() {
         height: '100%',
       }}
       camera={{ position: [0, 10, 30], fov: 30 }}
-      fog={new THREE.Fog(0x003366, 20, 80)} // initial fog
     >
+      <FogEffect />       {/* Adds fog to scene */}
+      <DynamicFog />      {/* Adjusts fog with depth */}
       <ScrollCamera topY={10} bottomY={-55} />
       <Lights />
-      <DynamicFog /> {/* makes fog get thicker as you dive */}
-      <AnimatedNoisyPlane position={[0, 0, 0]} color={0x3399ff} noiseScale={0.3} noiseStrength={0.5} />
-      <StaticNoisyPlane position={[0, -60, 0]} color={0x886644} noiseScale={0.1} noiseStrength={1.2} />
+      <AnimatedNoisyPlane
+        position={[0, 0, 0]}
+        color={0x3399ff}
+        noiseScale={0.3}
+        noiseStrength={0.5}
+      />
+      <StaticNoisyPlane
+        position={[0, -65, 0]}
+        color={0x886644}
+        noiseScale={0.1}
+        noiseStrength={1.2}
+      />
     </Canvas>
   );
 }
