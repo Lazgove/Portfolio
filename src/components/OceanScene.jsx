@@ -2,7 +2,6 @@
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef, useState } from 'react';
-import { OrbitControls } from '@react-three/drei';
 
 function ScrollCamera() {
   const { camera } = useThree();
