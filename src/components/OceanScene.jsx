@@ -66,24 +66,25 @@ function StaticNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noise
   );
 }
 
-// Water volume cube with inside faces
-function WaterBox({ size = 500, color = 0x3fa9f5 }) {
+// Thin water slab to simulate volume (a very thin box)
+function ThinWaterSlab({ width = 500, height = 10, depth = 500, color = 0x3fa9f5 }) {
   const meshRef = useRef();
 
   const geometry = useMemo(() => {
-    const geo = new THREE.BoxGeometry(size, size, size, 50, 50, 50);
-    // Flip inside out by scaling z by -1
+    const geo = new THREE.BoxGeometry(width, height, depth, 50, 1, 50);
+    // Flip inside out so inside faces render
     geo.scale(1, 1, -1);
     return geo;
-  }, [size]);
+  }, [width, height, depth]);
 
+  // Position so that top face is at y=0, bottom at y=-height
   return (
-    <mesh ref={meshRef} geometry={geometry} position={[0, -size / 2, 0]}>
+    <mesh ref={meshRef} geometry={geometry} position={[0, -height / 2, 0]}>
       <meshStandardMaterial
         color={color}
         transparent
         opacity={0.6}
-        side={THREE.BackSide} // Render inside faces
+        side={THREE.BackSide} // render only inside faces
         roughness={0.8}
         metalness={0.1}
       />
@@ -91,7 +92,7 @@ function WaterBox({ size = 500, color = 0x3fa9f5 }) {
   );
 }
 
-function ScrollCamera({ topY = 2, bottomY = -95 }) {
+function ScrollCamera({ topY = 2, bottomY = -8 }) {
   const { camera } = useThree();
   const [scrollY, setScrollY] = useState(0);
 
@@ -105,7 +106,10 @@ function ScrollCamera({ topY = 2, bottomY = -95 }) {
     const maxScroll = document.body.scrollHeight - window.innerHeight;
     const scrollProgress = maxScroll > 0 ? scrollY / maxScroll : 0;
     camera.position.y = THREE.MathUtils.lerp(topY, bottomY, scrollProgress);
-    camera.lookAt(0, camera.position.y - 5, 0);
+
+    camera.position.x = 0;
+    camera.position.z = 10;
+    camera.lookAt(0, 0, 0);
   });
 
   return null;
@@ -118,9 +122,9 @@ function Lights() {
   useFrame(() => {
     if (!dirLightRef.current) return;
 
-    const depthFactor = camera.position.y > 0 ? 0 : THREE.MathUtils.clamp((-camera.position.y) / 95, 0, 1);
+    const depthFactor = camera.position.y > 0 ? 0 : THREE.MathUtils.clamp((-camera.position.y) / 10, 0, 1);
 
-    // Dim main directional light going underwater
+    // Dim directional light when underwater
     dirLightRef.current.intensity = THREE.MathUtils.lerp(1.5, 0.3, depthFactor);
   });
 
@@ -151,14 +155,14 @@ function FogAndSkySwitcher() {
 
   useEffect(() => {
     if (!scene.fog) {
-      scene.fog = new THREE.Fog(0x87ceeb, 50, 100);
+      scene.fog = new THREE.Fog(0x87ceeb, 10, 30);
     }
     scene.background = new THREE.Color(0x87ceeb);
   }, [scene]);
 
   useFrame(() => {
     const y = camera.position.y;
-    const fogFactor = THREE.MathUtils.clamp((2 - y) / 97, 0, 1); // adjusted to new topY=2, bottomY=-95
+    const fogFactor = THREE.MathUtils.clamp((2 - y) / 10, 0, 1); // Adjust to thin slab height
 
     const skyColor = new THREE.Color(0x87ceeb);
     const deepColor = new THREE.Color(0x1e5d88);
@@ -168,8 +172,8 @@ function FogAndSkySwitcher() {
     const fogColor = skyColor.clone().lerp(deepColor, fogFactor);
     scene.fog.color.copy(fogColor);
 
-    scene.fog.near = THREE.MathUtils.lerp(50, 5, fogFactor);
-    scene.fog.far = THREE.MathUtils.lerp(100, 30, fogFactor);
+    scene.fog.near = THREE.MathUtils.lerp(10, 5, fogFactor);
+    scene.fog.far = THREE.MathUtils.lerp(30, 15, fogFactor);
   });
 
   return null;
@@ -187,14 +191,14 @@ export default function OceanScene() {
         height: '100%',
       }}
       shadows
-      camera={{ position: [0, 2, 30], fov: 30, near: 0.5, far: 1000 }} // Camera just outside and slightly above water cube top face
+      camera={{ position: [0, 2, 10], fov: 30, near: 0.5, far: 1000 }}
     >
       <FogAndSkySwitcher />
-      <ScrollCamera topY={2} bottomY={-95} />
+      <ScrollCamera topY={2} bottomY={-8} />
       <Lights />
 
-      {/* Water volume cube */}
-      <WaterBox size={500} color={0x3fa9f5} />
+      {/* Thin water slab */}
+      <ThinWaterSlab width={500} height={10} depth={500} color={0x3fa9f5} />
 
       {/* Water surface with animated waves */}
       <AnimatedNoisyPlane
@@ -204,9 +208,9 @@ export default function OceanScene() {
         noiseStrength={0.4}
       />
 
-      {/* Sandy ground (lowered more) */}
+      {/* Sandy ground just below water slab */}
       <StaticNoisyPlane
-        position={[0, -100, 0]} // lowered from -85 to -95
+        position={[0, -10, 0]}
         color={0x8B7D5B}
         noiseScale={0.15}
         noiseStrength={1.3}
