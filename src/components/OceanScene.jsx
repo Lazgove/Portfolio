@@ -57,7 +57,7 @@ function StaticNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noise
   );
 }
 
-function ScrollCamera({ topY = 10, bottomY = -55 }) {
+function ScrollCamera({ topY = 10, bottomY = -75 }) {
   const { camera } = useThree();
   const [scrollY, setScrollY] = useState(0);
 
@@ -87,22 +87,39 @@ function Lights() {
   );
 }
 
-function FogEffect() {
-  const { scene } = useThree();
+function FogAndSkySwitcher() {
+  const { scene, camera } = useThree();
+
   useEffect(() => {
-    // Blue fog for underwater effect
-    scene.fog = new THREE.Fog(0x1e5d88, 15, 80);
-    scene.background = new THREE.Color(0x1e5d88);
+    scene.background = new THREE.Color(0x87ceeb); // Sky blue by default
+    scene.fog = null; // No fog above water
   }, [scene]);
+
+  useFrame(() => {
+    if (camera.position.y > 0) {
+      // Above water → Sky background, no fog
+      scene.background.set(0x87ceeb); // Light blue
+      scene.fog = null;
+    } else {
+      // Underwater → Blue fog
+      scene.background.set(0x1e5d88); // Deep ocean blue
+      if (!scene.fog) {
+        scene.fog = new THREE.Fog(0x1e5d88, 15, 80);
+      }
+    }
+  });
+
   return null;
 }
 
 function DynamicFog() {
   const { scene, camera } = useThree();
   useFrame(() => {
-    const depthFactor = THREE.MathUtils.clamp((-camera.position.y) / 60, 0, 1);
-    scene.fog.far = THREE.MathUtils.lerp(80, 30, depthFactor);
-    scene.fog.near = THREE.MathUtils.lerp(15, 5, depthFactor);
+    if (camera.position.y <= 0 && scene.fog) {
+      const depthFactor = THREE.MathUtils.clamp((-camera.position.y) / 75, 0, 1);
+      scene.fog.far = THREE.MathUtils.lerp(80, 30, depthFactor);
+      scene.fog.near = THREE.MathUtils.lerp(15, 5, depthFactor);
+    }
   });
   return null;
 }
@@ -120,9 +137,9 @@ export default function OceanScene() {
       }}
       camera={{ position: [0, 10, 30], fov: 30 }}
     >
-      <FogEffect />
+      <FogAndSkySwitcher />
       <DynamicFog />
-      <ScrollCamera topY={10} bottomY={-65} />
+      <ScrollCamera topY={10} bottomY={-75} />
       <Lights />
 
       {/* Water surface */}
@@ -133,9 +150,9 @@ export default function OceanScene() {
         noiseStrength={0.4}
       />
 
-      {/* Sandy ground */}
+      {/* Sandy ground (lowered) */}
       <StaticNoisyPlane
-        position={[0, -65, 0]}
+        position={[0, -75, 0]}
         color={0x8B7D5B}
         noiseScale={0.15}
         noiseStrength={1.3}
