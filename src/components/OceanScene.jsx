@@ -26,9 +26,9 @@ function AnimatedNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noi
       <meshStandardMaterial
         color={color}
         transparent
-        opacity={0.7}
-        roughness={0.6}
-        metalness={0.1}
+        opacity={0.8}
+        roughness={0.8}
+        metalness={0.05}
         side={THREE.DoubleSide}
       />
     </mesh>
@@ -52,7 +52,7 @@ function StaticNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noise
 
   return (
     <mesh geometry={geometry} position={position} rotation={[-Math.PI / 2, 0, 0]}>
-      <meshStandardMaterial color={color} roughness={0.8} metalness={0.05} />
+      <meshStandardMaterial color={color} roughness={0.9} metalness={0.02} />
     </mesh>
   );
 }
@@ -80,8 +80,9 @@ function ScrollCamera({ topY = 10, bottomY = -55 }) {
 function Lights() {
   return (
     <>
-      <directionalLight position={[50, 100, 50]} intensity={1.2} />
-      <ambientLight intensity={0.4} />
+      {/* Sunlight from above */}
+      <directionalLight position={[0, 50, 50]} intensity={1.5} color={0xaaccff} />
+      <ambientLight intensity={0.3} />
     </>
   );
 }
@@ -89,7 +90,9 @@ function Lights() {
 function FogEffect() {
   const { scene } = useThree();
   useEffect(() => {
-    scene.fog = new THREE.Fog(0x003366, 20, 80); // color, near, far
+    // Blue fog for underwater effect
+    scene.fog = new THREE.Fog(0x1e5d88, 15, 80);
+    scene.background = new THREE.Color(0x1e5d88);
   }, [scene]);
   return null;
 }
@@ -99,7 +102,7 @@ function DynamicFog() {
   useFrame(() => {
     const depthFactor = THREE.MathUtils.clamp((-camera.position.y) / 60, 0, 1);
     scene.fog.far = THREE.MathUtils.lerp(80, 30, depthFactor);
-    scene.fog.near = THREE.MathUtils.lerp(20, 5, depthFactor);
+    scene.fog.near = THREE.MathUtils.lerp(15, 5, depthFactor);
   });
   return null;
 }
@@ -117,21 +120,25 @@ export default function OceanScene() {
       }}
       camera={{ position: [0, 10, 30], fov: 30 }}
     >
-      <FogEffect />       {/* Adds fog to scene */}
-      <DynamicFog />      {/* Adjusts fog with depth */}
-      <ScrollCamera topY={10} bottomY={-55} />
+      <FogEffect />
+      <DynamicFog />
+      <ScrollCamera topY={10} bottomY={-65} />
       <Lights />
+
+      {/* Water surface */}
       <AnimatedNoisyPlane
         position={[0, 0, 0]}
-        color={0x3399ff}
+        color={0x3fa9f5}
         noiseScale={0.3}
-        noiseStrength={0.5}
+        noiseStrength={0.4}
       />
+
+      {/* Sandy ground */}
       <StaticNoisyPlane
         position={[0, -65, 0]}
-        color={0x886644}
-        noiseScale={0.1}
-        noiseStrength={1.2}
+        color={0x8B7D5B}
+        noiseScale={0.15}
+        noiseStrength={1.3}
       />
     </Canvas>
   );
