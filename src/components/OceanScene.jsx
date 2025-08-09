@@ -66,6 +66,33 @@ function StaticNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noise
   );
 }
 
+// New: Water volume cube with inside faces
+function WaterBox({ size = 500, color = 0x3fa9f5 }) {
+  const meshRef = useRef();
+
+  const geometry = useMemo(() => {
+    const geo = new THREE.BoxGeometry(size, size, size, 50, 50, 50);
+    // Flip inside out by scaling z by -1
+    geo.scale(1, 1, -1);
+    return geo;
+  }, [size]);
+
+  // Optionally add subtle wave displacement inside water volume here later
+
+  return (
+    <mesh ref={meshRef} geometry={geometry} position={[0, -size / 2, 0]}>
+      <meshStandardMaterial
+        color={color}
+        transparent
+        opacity={0.6}
+        side={THREE.BackSide} // Render inside faces
+        roughness={0.8}
+        metalness={0.1}
+      />
+    </mesh>
+  );
+}
+
 function ScrollCamera({ topY = 10, bottomY = -95 }) {
   const { camera } = useThree();
   const [scrollY, setScrollY] = useState(0);
@@ -162,13 +189,16 @@ export default function OceanScene() {
         height: '100%',
       }}
       shadows
-      camera={{ position: [0, 10, 30], fov: 30, near: 0.5, far: 1000 }}
+      camera={{ position: [0, 0, 30], fov: 30, near: 0.5, far: 1000 }} // Start camera inside water volume (y=0)
     >
       <FogAndSkySwitcher />
       <ScrollCamera topY={10} bottomY={-95} />
       <Lights />
 
-      {/* Water surface */}
+      {/* Water volume cube */}
+      <WaterBox size={500} color={0x3fa9f5} />
+
+      {/* Water surface with animated waves */}
       <AnimatedNoisyPlane
         position={[0, 0, 0]}
         color={0x3fa9f5}
