@@ -1,4 +1,9 @@
-function FogAndSkySwitcher() {
+// FogAndSkySwitcher.jsx
+import * as THREE from 'three';
+import { useThree, useFrame } from '@react-three/fiber';
+import { useEffect } from 'react';
+
+export default function FogAndSkySwitcher() {
   const { scene, camera } = useThree();
 
   useEffect(() => {
