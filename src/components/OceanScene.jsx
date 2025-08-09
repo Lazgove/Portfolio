@@ -88,19 +88,45 @@ function ScrollCamera({ topY = 10, bottomY = -75 }) {
 
 function Lights() {
   const dirLightRef = useRef();
+  const causticLightRef = useRef();
   const { camera } = useThree();
 
-  useFrame(() => {
-    if (dirLightRef.current) {
-      const depthFactor = camera.position.y > 0 ? 0 : THREE.MathUtils.clamp((-camera.position.y) / 75, 0, 1);
-      dirLightRef.current.intensity = THREE.MathUtils.lerp(1.5, 0.3, depthFactor);
-    }
+  useFrame(({ clock }) => {
+    if (!dirLightRef.current || !causticLightRef.current) return;
+
+    const depthFactor = camera.position.y > 0 ? 0 : THREE.MathUtils.clamp((-camera.position.y) / 75, 0, 1);
+
+    // Dim the main directional light as we go underwater
+    dirLightRef.current.intensity = THREE.MathUtils.lerp(1.5, 0.3, depthFactor);
+
+    // Animate caustic light intensity and subtle movement to mimic wave caustics
+    const time = clock.getElapsedTime();
+    causticLightRef.current.intensity = THREE.MathUtils.lerp(0, 0.5, depthFactor);
+
+    // Oscillate the position slightly using sine waves (simulate light movement)
+    causticLightRef.current.position.x = Math.sin(time * 1.5) * 10;
+    causticLightRef.current.position.z = Math.cos(time * 1.2) * 10;
   });
 
   return (
     <>
-      <directionalLight ref={dirLightRef} position={[0, 50, 50]} intensity={1.5} color={0xaaccff} />
+      <directionalLight
+        ref={dirLightRef}
+        position={[0, 50, 50]}
+        intensity={1.5}
+        color={0xaaccff}
+        castShadow
+      />
       <ambientLight intensity={0.3} />
+
+      {/* Underwater caustic light */}
+      <directionalLight
+        ref={causticLightRef}
+        position={[0, -10, 0]}
+        intensity={0}
+        color={0x77aaff}
+        castShadow={false}
+      />
     </>
   );
 }
