@@ -30,7 +30,7 @@ function AnimatedNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noi
   });
 
   return (
-    <mesh ref={meshRef} position={position} rotation={[-Math.PI / 2, 0, 0]}>
+    <mesh ref={meshRef} position={position} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
       <planeGeometry args={[size, size, 200, 200]} />
       <meshStandardMaterial
         color={color}
@@ -60,13 +60,13 @@ function StaticNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noise
   }, [size, noiseScale, noiseStrength]);
 
   return (
-    <mesh geometry={geometry} position={position} rotation={[-Math.PI / 2, 0, 0]}>
+    <mesh geometry={geometry} position={position} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
       <meshStandardMaterial color={color} roughness={0.9} metalness={0.02} />
     </mesh>
   );
 }
 
-function ScrollCamera({ topY = 10, bottomY = -75 }) {
+function ScrollCamera({ topY = 10, bottomY = -85 }) {
   const { camera } = useThree();
   const [scrollY, setScrollY] = useState(0);
 
@@ -89,23 +89,28 @@ function ScrollCamera({ topY = 10, bottomY = -75 }) {
 function Lights() {
   const dirLightRef = useRef();
   const causticLightRef = useRef();
+  const spotLightRef = useRef();
   const { camera } = useThree();
 
   useFrame(({ clock }) => {
-    if (!dirLightRef.current || !causticLightRef.current) return;
+    if (!dirLightRef.current || !causticLightRef.current || !spotLightRef.current) return;
 
     const depthFactor = camera.position.y > 0 ? 0 : THREE.MathUtils.clamp((-camera.position.y) / 75, 0, 1);
 
-    // Dim the main directional light as we go underwater
+    // Dim main directional light going underwater
     dirLightRef.current.intensity = THREE.MathUtils.lerp(1.5, 0.3, depthFactor);
 
-    // Animate caustic light intensity and subtle movement to mimic wave caustics
     const time = clock.getElapsedTime();
-    causticLightRef.current.intensity = THREE.MathUtils.lerp(0, 0.5, depthFactor);
 
-    // Oscillate the position slightly using sine waves (simulate light movement)
+    // Caustic directional light subtle movement & intensity
+    causticLightRef.current.intensity = THREE.MathUtils.lerp(0, 0.6, depthFactor);
     causticLightRef.current.position.x = Math.sin(time * 1.5) * 10;
     causticLightRef.current.position.z = Math.cos(time * 1.2) * 10;
+
+    // Spot light mimics caustics projection, flickering intensity & small position oscillation
+    spotLightRef.current.intensity = THREE.MathUtils.lerp(0, 0.8, depthFactor);
+    spotLightRef.current.position.x = Math.sin(time * 2.1) * 5;
+    spotLightRef.current.position.z = Math.cos(time * 1.7) * 5;
   });
 
   return (
@@ -116,16 +121,40 @@ function Lights() {
         intensity={1.5}
         color={0xaaccff}
         castShadow
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+        shadow-camera-near={10}
+        shadow-camera-far={100}
+        shadow-camera-left={-50}
+        shadow-camera-right={50}
+        shadow-camera-top={50}
+        shadow-camera-bottom={-50}
       />
       <ambientLight intensity={0.3} />
 
-      {/* Underwater caustic light */}
+      {/* Underwater caustic directional light */}
       <directionalLight
         ref={causticLightRef}
         position={[0, -10, 0]}
         intensity={0}
         color={0x77aaff}
         castShadow={false}
+      />
+
+      {/* Underwater caustic spot light for localized effect */}
+      <spotLight
+        ref={spotLightRef}
+        position={[0, -8, 0]}
+        angle={Math.PI / 4}
+        penumbra={0.5}
+        intensity={0}
+        color={0x99ccff}
+        castShadow
+        shadow-mapSize-width={512}
+        shadow-mapSize-height={512}
+        shadow-camera-near={1}
+        shadow-camera-far={50}
+        target-position={[0, -85, 0]}
       />
     </>
   );
@@ -171,10 +200,11 @@ export default function OceanScene() {
         width: '100%',
         height: '100%',
       }}
+      shadows
       camera={{ position: [0, 10, 30], fov: 30 }}
     >
       <FogAndSkySwitcher />
-      <ScrollCamera topY={10} bottomY={-75} />
+      <ScrollCamera topY={10} bottomY={-85} />
       <Lights />
 
       {/* Water surface */}
@@ -185,9 +215,9 @@ export default function OceanScene() {
         noiseStrength={0.4}
       />
 
-      {/* Sandy ground (lowered) */}
+      {/* Sandy ground (lowered more) */}
       <StaticNoisyPlane
-        position={[0, -75, 0]}
+        position={[0, -85, 0]} // Lowered from -75 to -85
         color={0x8B7D5B}
         noiseScale={0.15}
         noiseStrength={1.3}
