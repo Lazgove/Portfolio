@@ -66,7 +66,7 @@ function StaticNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noise
   );
 }
 
-// New: Water volume cube with inside faces
+// Water volume cube with inside faces
 function WaterBox({ size = 500, color = 0x3fa9f5 }) {
   const meshRef = useRef();
 
@@ -76,8 +76,6 @@ function WaterBox({ size = 500, color = 0x3fa9f5 }) {
     geo.scale(1, 1, -1);
     return geo;
   }, [size]);
-
-  // Optionally add subtle wave displacement inside water volume here later
 
   return (
     <mesh ref={meshRef} geometry={geometry} position={[0, -size / 2, 0]}>
@@ -93,7 +91,7 @@ function WaterBox({ size = 500, color = 0x3fa9f5 }) {
   );
 }
 
-function ScrollCamera({ topY = 10, bottomY = -95 }) {
+function ScrollCamera({ topY = 2, bottomY = -95 }) {
   const { camera } = useThree();
   const [scrollY, setScrollY] = useState(0);
 
@@ -160,7 +158,7 @@ function FogAndSkySwitcher() {
 
   useFrame(() => {
     const y = camera.position.y;
-    const fogFactor = THREE.MathUtils.clamp((10 - y) / 95, 0, 1);
+    const fogFactor = THREE.MathUtils.clamp((2 - y) / 97, 0, 1); // adjusted to new topY=2, bottomY=-95
 
     const skyColor = new THREE.Color(0x87ceeb);
     const deepColor = new THREE.Color(0x1e5d88);
@@ -189,10 +187,10 @@ export default function OceanScene() {
         height: '100%',
       }}
       shadows
-      camera={{ position: [0, 0, 30], fov: 30, near: 0.5, far: 1000 }} // Start camera inside water volume (y=0)
+      camera={{ position: [0, 2, 30], fov: 30, near: 0.5, far: 1000 }} // Camera just outside and slightly above water cube top face
     >
       <FogAndSkySwitcher />
-      <ScrollCamera topY={10} bottomY={-95} />
+      <ScrollCamera topY={2} bottomY={-95} />
       <Lights />
 
       {/* Water volume cube */}
