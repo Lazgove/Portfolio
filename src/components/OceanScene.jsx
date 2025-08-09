@@ -162,7 +162,7 @@ export default function OceanScene() {
         height: '100%',
       }}
       shadows
-      camera={{ position: [0, 10, 30], fov: 30 }}
+      camera={{ position: [0, 10, 30], fov: 30, near: 0.5, far: 1000 }}
     >
       <FogAndSkySwitcher />
       <ScrollCamera topY={10} bottomY={-95} />
