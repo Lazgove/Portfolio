@@ -1,4 +1,3 @@
-Vous avez dit :
 // OceanScene.jsx
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
