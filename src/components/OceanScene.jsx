@@ -29,7 +29,7 @@ function AnimatedNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noi
         opacity={0.7}
         roughness={0.6}
         metalness={0.1}
-        side={THREE.DoubleSide} // ✅ visible from above and below
+        side={THREE.DoubleSide}
       />
     </mesh>
   );
@@ -57,7 +57,7 @@ function StaticNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noise
   );
 }
 
-function ScrollCamera({ topY = 10, bottomY = -50 }) {
+function ScrollCamera({ topY = 10, bottomY = -55 }) {
   const { camera } = useThree();
   const [scrollY, setScrollY] = useState(0);
 
@@ -71,7 +71,7 @@ function ScrollCamera({ topY = 10, bottomY = -50 }) {
     const maxScroll = document.body.scrollHeight - window.innerHeight;
     const scrollProgress = maxScroll > 0 ? scrollY / maxScroll : 0;
     camera.position.y = THREE.MathUtils.lerp(topY, bottomY, scrollProgress);
-    camera.lookAt(0, camera.position.y - 5, 0); // ✅ tilt slightly downward to see the ground
+    camera.lookAt(0, camera.position.y - 5, 0);
   });
 
   return null;
@@ -86,6 +86,16 @@ function Lights() {
   );
 }
 
+function DynamicFog() {
+  const { scene, camera } = useThree();
+  useFrame(() => {
+    const depthFactor = THREE.MathUtils.clamp((-camera.position.y) / 60, 0, 1);
+    scene.fog.far = THREE.MathUtils.lerp(80, 30, depthFactor);
+    scene.fog.near = THREE.MathUtils.lerp(20, 5, depthFactor);
+  });
+  return null;
+}
+
 export default function OceanScene() {
   return (
     <Canvas
@@ -98,15 +108,12 @@ export default function OceanScene() {
         height: '100%',
       }}
       camera={{ position: [0, 10, 30], fov: 30 }}
+      fog={new THREE.Fog(0x003366, 20, 80)} // initial fog
     >
-      {/* Increased bottomY so camera goes deeper */}
       <ScrollCamera topY={10} bottomY={-55} />
       <Lights />
-
-      {/* Water surface plane */}
+      <DynamicFog /> {/* makes fog get thicker as you dive */}
       <AnimatedNoisyPlane position={[0, 0, 0]} color={0x3399ff} noiseScale={0.3} noiseStrength={0.5} />
-
-      {/* Ground plane moved lower to y = -60 */}
       <StaticNoisyPlane position={[0, -60, 0]} color={0x886644} noiseScale={0.1} noiseStrength={1.2} />
     </Canvas>
   );
