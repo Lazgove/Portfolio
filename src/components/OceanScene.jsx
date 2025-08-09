@@ -84,7 +84,6 @@ function Lights() {
   useFrame(() => {
     if (dirLightRef.current) {
       const depthFactor = camera.position.y > 0 ? 0 : THREE.MathUtils.clamp((-camera.position.y) / 75, 0, 1);
-      // Intensity goes from 1.5 (surface) to 0.3 (deep)
       dirLightRef.current.intensity = THREE.MathUtils.lerp(1.5, 0.3, depthFactor);
     }
   });
@@ -100,22 +99,42 @@ function Lights() {
 function FogAndSkySwitcher() {
   const { scene, camera } = useThree();
 
+  const fogStart = 1;  // Start of fog fade (just above water)
+  const fogEnd = -1;   // Full fog at this depth and below
+
   useEffect(() => {
-    scene.background = new THREE.Color(0x87ceeb); // Sky blue by default
-    scene.fog = null; // No fog above water
+    scene.background = new THREE.Color(0x87ceeb);
+    scene.fog = null;
   }, [scene]);
 
   useFrame(() => {
-    if (camera.position.y > 0) {
-      // Above water → Sky background, no fog
-      scene.background.set(0x87ceeb); // Light blue
+    const y = camera.position.y;
+
+    if (y >= fogStart) {
+      // Fully above water
+      scene.background.set(0x87ceeb);
       scene.fog = null;
-    } else {
-      // Underwater → Blue fog
-      scene.background.set(0x1e5d88); // Deep ocean blue
+    } else if (y <= fogEnd) {
+      // Fully underwater
+      scene.background.set(0x1e5d88);
       if (!scene.fog) {
         scene.fog = new THREE.Fog(0x1e5d88, 15, 80);
       }
+    } else {
+      // Transition zone - smoothly blend fog and background color
+      const t = (fogStart - y) / (fogStart - fogEnd); // 0 at fogStart, 1 at fogEnd
+
+      const aboveColor = new THREE.Color(0x87ceeb);
+      const belowColor = new THREE.Color(0x1e5d88);
+      const bgColor = aboveColor.clone().lerp(belowColor, t);
+      scene.background.copy(bgColor);
+
+      if (!scene.fog) {
+        scene.fog = new THREE.Fog(0x1e5d88, 15, 80);
+      }
+
+      const fogColor = aboveColor.clone().lerp(belowColor, t);
+      scene.fog.color.copy(fogColor);
     }
   });
 
@@ -125,20 +144,19 @@ function FogAndSkySwitcher() {
 function DynamicFog() {
   const { scene, camera } = useThree();
 
+  const fogEnd = -1;
+
   useFrame(() => {
-    if (camera.position.y <= 0 && scene.fog) {
+    if (camera.position.y <= fogEnd && scene.fog) {
       const depthFactor = THREE.MathUtils.clamp((-camera.position.y) / 75, 0, 1);
 
-      // Adjust fog density by moving near/far planes closer
       scene.fog.far = THREE.MathUtils.lerp(80, 30, depthFactor);
       scene.fog.near = THREE.MathUtils.lerp(15, 5, depthFactor);
 
-      // Darken fog color to simulate increasing depth
       const baseColor = new THREE.Color(0x1e5d88);
       const darkenedColor = baseColor.clone().lerp(new THREE.Color(0x000000), depthFactor * 0.8);
       scene.fog.color.copy(darkenedColor);
 
-      // Match background to fog color for seamless transition underwater
       scene.background.copy(darkenedColor);
     }
   });
