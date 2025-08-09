@@ -43,7 +43,7 @@ function AnimatedNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noi
   );
 }
 
-// Static sandy ground
+// Static sandy ground with noise
 function StaticNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noiseStrength = 1 }) {
   const geometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(size, size, 200, 200);
@@ -66,7 +66,7 @@ function StaticNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noise
   );
 }
 
-// Camera moves on scroll
+// Scroll-controlled camera movement
 function ScrollCamera({ topY = 10, bottomY = -95 }) {
   const { camera } = useThree();
   const [scrollY, setScrollY] = useState(0);
@@ -87,7 +87,7 @@ function ScrollCamera({ topY = 10, bottomY = -95 }) {
   return null;
 }
 
-// Directional and ambient lights with intensity fading underwater
+// Directional light dims as camera goes underwater
 function Lights() {
   const dirLightRef = useRef();
   const { camera } = useThree();
@@ -121,7 +121,7 @@ function Lights() {
   );
 }
 
-// Fog and background color changes based on camera depth
+// Fog and sky color switcher based on camera depth
 function FogAndSkySwitcher() {
   const { scene, camera } = useThree();
 
@@ -151,62 +151,7 @@ function FogAndSkySwitcher() {
   return null;
 }
 
-// Caustics texture overlay on ground
-function CausticsOverlay({ position, size = 500 }) {
-  const meshRef = useRef();
-  const texture = useMemo(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-
-    for (let i = 0; i < 200; i++) {
-      const x = Math.random() * 512;
-      const y = Math.random() * 512;
-      const radius = 5 + Math.random() * 15;
-      const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-      gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
-      gradient.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(4, 4);
-    return tex;
-  }, []);
-
-  useFrame(({ clock }) => {
-    if (meshRef.current) {
-      texture.offset.x = (clock.getElapsedTime() * 0.05) % 1;
-      texture.offset.y = (clock.getElapsedTime() * 0.02) % 1;
-    }
-  });
-
-  return (
-    <mesh
-      ref={meshRef}
-      position={[position[0], position[1] + 0.1, position[2]]}
-      rotation={[-Math.PI / 2, 0, 0]}
-      receiveShadow
-    >
-      <planeGeometry args={[size, size]} />
-      <meshBasicMaterial
-        map={texture}
-        transparent
-        opacity={0.3}
-        depthWrite={false}
-        side={THREE.DoubleSide}
-        blending={THREE.AdditiveBlending}
-      />
-    </mesh>
-  );
-}
-
-// Light rays from sky fading as camera goes down
+// Light rays from above fading with depth
 function LightRays({ count = 6, radius = 30, height = 50 }) {
   const { camera } = useThree();
   const groupRef = useRef();
@@ -222,7 +167,7 @@ function LightRays({ count = 6, radius = 30, height = 50 }) {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
 
-    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
     gradient.addColorStop(0, 'rgba(255,255,255,0.3)');
     gradient.addColorStop(1, 'rgba(255,255,255,0)');
 
@@ -286,7 +231,6 @@ export default function OceanScene() {
     >
       <FogAndSkySwitcher />
       <ScrollCamera topY={10} bottomY={-95} />
-      <Lights />
 
       {/* Water surface */}
       <AnimatedNoisyPlane
@@ -303,9 +247,6 @@ export default function OceanScene() {
         noiseScale={0.15}
         noiseStrength={1.3}
       />
-
-      {/* Caustics overlay */}
-      <CausticsOverlay position={[0, -100, 0]} />
 
       {/* Light rays */}
       <LightRays count={8} radius={40} height={60} />
