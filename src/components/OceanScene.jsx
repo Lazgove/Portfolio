@@ -83,6 +83,7 @@ function Lights() {
 
   useFrame(() => {
     if (dirLightRef.current) {
+      // Dim the directional light smoothly as camera goes underwater
       const depthFactor = camera.position.y > 0 ? 0 : THREE.MathUtils.clamp((-camera.position.y) / 75, 0, 1);
       dirLightRef.current.intensity = THREE.MathUtils.lerp(1.5, 0.3, depthFactor);
     }
@@ -99,66 +100,33 @@ function Lights() {
 function FogAndSkySwitcher() {
   const { scene, camera } = useThree();
 
-  const fogStart = 1;  // Start of fog fade (just above water)
-  const fogEnd = -1;   // Full fog at this depth and below
-
   useEffect(() => {
+    // Always enable fog from start with light sky fog settings
+    if (!scene.fog) {
+      scene.fog = new THREE.Fog(0x87ceeb, 50, 100);
+    }
     scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = null;
   }, [scene]);
 
   useFrame(() => {
     const y = camera.position.y;
 
-    if (y >= fogStart) {
-      // Fully above water
-      scene.background.set(0x87ceeb);
-      scene.fog = null;
-    } else if (y <= fogEnd) {
-      // Fully underwater
-      scene.background.set(0x1e5d88);
-      if (!scene.fog) {
-        scene.fog = new THREE.Fog(0x1e5d88, 15, 80);
-      }
-    } else {
-      // Transition zone - smoothly blend fog and background color
-      const t = (fogStart - y) / (fogStart - fogEnd); // 0 at fogStart, 1 at fogEnd
+    // fogFactor: 0 when camera high above water (y=10), 1 when deep underwater (y=-75)
+    const fogFactor = THREE.MathUtils.clamp((10 - y) / 85, 0, 1);
 
-      const aboveColor = new THREE.Color(0x87ceeb);
-      const belowColor = new THREE.Color(0x1e5d88);
-      const bgColor = aboveColor.clone().lerp(belowColor, t);
-      scene.background.copy(bgColor);
+    // Interpolate background color between sky blue and deep ocean blue
+    const skyColor = new THREE.Color(0x87ceeb);
+    const deepColor = new THREE.Color(0x1e5d88);
+    const bgColor = skyColor.clone().lerp(deepColor, fogFactor);
+    scene.background.copy(bgColor);
 
-      if (!scene.fog) {
-        scene.fog = new THREE.Fog(0x1e5d88, 15, 80);
-      }
+    // Interpolate fog color similarly
+    const fogColor = skyColor.clone().lerp(deepColor, fogFactor);
+    scene.fog.color.copy(fogColor);
 
-      const fogColor = aboveColor.clone().lerp(belowColor, t);
-      scene.fog.color.copy(fogColor);
-    }
-  });
-
-  return null;
-}
-
-function DynamicFog() {
-  const { scene, camera } = useThree();
-
-  const fogEnd = -1;
-
-  useFrame(() => {
-    if (camera.position.y <= fogEnd && scene.fog) {
-      const depthFactor = THREE.MathUtils.clamp((-camera.position.y) / 75, 0, 1);
-
-      scene.fog.far = THREE.MathUtils.lerp(80, 30, depthFactor);
-      scene.fog.near = THREE.MathUtils.lerp(15, 5, depthFactor);
-
-      const baseColor = new THREE.Color(0x1e5d88);
-      const darkenedColor = baseColor.clone().lerp(new THREE.Color(0x000000), depthFactor * 0.8);
-      scene.fog.color.copy(darkenedColor);
-
-      scene.background.copy(darkenedColor);
-    }
+    // Interpolate fog near and far to control fog density smoothly
+    scene.fog.near = THREE.MathUtils.lerp(50, 5, fogFactor);
+    scene.fog.far = THREE.MathUtils.lerp(100, 30, fogFactor);
   });
 
   return null;
@@ -178,7 +146,6 @@ export default function OceanScene() {
       camera={{ position: [0, 10, 30], fov: 30 }}
     >
       <FogAndSkySwitcher />
-      <DynamicFog />
       <ScrollCamera topY={10} bottomY={-75} />
       <Lights />
 
