@@ -3,14 +3,38 @@ import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef, useState } from 'react';
 
-function ScrollCamera() {
+// Reusable plane with animated noise displacement
+function NoisyPlane({ position, color, size = 500, noiseScale = 0.5, noiseStrength = 1 }) {
+  const meshRef = useRef();
+
+  useFrame(({ clock }) => {
+    const time = clock.getElapsedTime();
+    const geometry = meshRef.current.geometry;
+    const positionAttr = geometry.attributes.position;
+    for (let i = 0; i < positionAttr.count; i++) {
+      const x = positionAttr.getX(i);
+      const y = positionAttr.getY(i);
+      const wave = Math.sin(x * noiseScale + time * 0.3) * Math.cos(y * noiseScale + time * 0.3);
+      positionAttr.setZ(i, wave * noiseStrength);
+    }
+    positionAttr.needsUpdate = true;
+    geometry.computeVertexNormals();
+  });
+
+  return (
+    <mesh ref={meshRef} position={position} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[size, size, 200, 200]} />
+      <meshStandardMaterial color={color} roughness={0.6} metalness={0.1} />
+    </mesh>
+  );
+}
+
+function ScrollCamera({ topY = 10, bottomY = -50 }) {
   const { camera } = useThree();
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
-    const onScroll = () => {
-      setScrollY(window.scrollY);
-    };
+    const onScroll = () => setScrollY(window.scrollY);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -18,44 +42,19 @@ function ScrollCamera() {
   useFrame(() => {
     const maxScroll = document.body.scrollHeight - window.innerHeight;
     const scrollProgress = maxScroll > 0 ? scrollY / maxScroll : 0;
-    // Map scroll 0 → 1 to camera.y 5 → -20
-    camera.position.y = THREE.MathUtils.lerp(5, -20, scrollProgress);
-    camera.lookAt(0, camera.position.y, 0); // Keep looking at horizontal center
+    camera.position.y = THREE.MathUtils.lerp(topY, bottomY, scrollProgress);
+    camera.lookAt(0, camera.position.y, 0);
   });
 
   return null;
 }
 
-function WaterSurface() {
-  return (
-    <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[100, 100, 1, 1]} />
-      <meshPhysicalMaterial
-        color={0x3399ff}
-        transparent
-        opacity={0.7}
-        roughness={0.1}
-        metalness={0.1}
-      />
-    </mesh>
-  );
-}
-
-function SeaFloor() {
-  return (
-    <mesh position={[0, -20, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[200, 200, 1, 1]} />
-      <meshStandardMaterial color={0x886644} />
-    </mesh>
-  );
-}
-
 function Lights() {
   return (
     <>
-      {/* Above water sunlight */}
-      <directionalLight position={[10, 20, 10]} intensity={1.2} />
-      <ambientLight intensity={0.3} />
+      {/* Sunlight */}
+      <directionalLight position={[50, 100, 50]} intensity={1.2} />
+      <ambientLight intensity={0.4} />
     </>
   );
 }
@@ -71,14 +70,12 @@ export default function OceanScene() {
         width: '100%',
         height: '100%',
       }}
-      camera={{ position: [0, 5, 15], fov: 50 }}
+      camera={{ position: [0, 10, 30], fov: 30 }} // Narrower FOV
     >
-      <ScrollCamera />
+      <ScrollCamera topY={10} bottomY={-50} />
       <Lights />
-      <WaterSurface />
-      <SeaFloor />
-      {/* Optional: for testing movement */}
-      {/* <OrbitControls /> */}
+      <NoisyPlane position={[0, 0, 0]} color={0x3399ff} noiseScale={0.3} noiseStrength={0.5} /> {/* Water surface */}
+      <NoisyPlane position={[0, -50, 0]} color={0x886644} noiseScale={0.1} noiseStrength={1.2} /> {/* Sea floor */}
     </Canvas>
   );
 }
