@@ -10,12 +10,21 @@ function AnimatedNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noi
     const time = clock.getElapsedTime();
     const geometry = meshRef.current.geometry;
     const positionAttr = geometry.attributes.position;
+
     for (let i = 0; i < positionAttr.count; i++) {
       const x = positionAttr.getX(i);
       const y = positionAttr.getY(i);
-      const wave = Math.sin(x * noiseScale + time * 0.3) * Math.cos(y * noiseScale + time * 0.3);
+
+      // Layered sine waves for natural wave-like surface
+      const wave1 = Math.sin(x * noiseScale + time * 0.8);
+      const wave2 = Math.cos(y * noiseScale * 1.3 + time * 1.2);
+      const wave3 = Math.sin((x + y) * noiseScale * 0.7 + time * 0.5);
+
+      const wave = wave1 * 0.6 + wave2 * 0.3 + wave3 * 0.2;
+
       positionAttr.setZ(i, wave * noiseStrength);
     }
+
     positionAttr.needsUpdate = true;
     geometry.computeVertexNormals();
   });
@@ -83,7 +92,6 @@ function Lights() {
 
   useFrame(() => {
     if (dirLightRef.current) {
-      // Dim the directional light smoothly as camera goes underwater
       const depthFactor = camera.position.y > 0 ? 0 : THREE.MathUtils.clamp((-camera.position.y) / 75, 0, 1);
       dirLightRef.current.intensity = THREE.MathUtils.lerp(1.5, 0.3, depthFactor);
     }
@@ -101,7 +109,6 @@ function FogAndSkySwitcher() {
   const { scene, camera } = useThree();
 
   useEffect(() => {
-    // Always enable fog from start with light sky fog settings
     if (!scene.fog) {
       scene.fog = new THREE.Fog(0x87ceeb, 50, 100);
     }
@@ -110,21 +117,16 @@ function FogAndSkySwitcher() {
 
   useFrame(() => {
     const y = camera.position.y;
-
-    // fogFactor: 0 when camera high above water (y=10), 1 when deep underwater (y=-75)
     const fogFactor = THREE.MathUtils.clamp((10 - y) / 85, 0, 1);
 
-    // Interpolate background color between sky blue and deep ocean blue
     const skyColor = new THREE.Color(0x87ceeb);
     const deepColor = new THREE.Color(0x1e5d88);
     const bgColor = skyColor.clone().lerp(deepColor, fogFactor);
     scene.background.copy(bgColor);
 
-    // Interpolate fog color similarly
     const fogColor = skyColor.clone().lerp(deepColor, fogFactor);
     scene.fog.color.copy(fogColor);
 
-    // Interpolate fog near and far to control fog density smoothly
     scene.fog.near = THREE.MathUtils.lerp(50, 5, fogFactor);
     scene.fog.far = THREE.MathUtils.lerp(100, 30, fogFactor);
   });
