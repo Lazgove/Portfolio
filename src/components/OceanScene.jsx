@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef, useState, useMemo } from 'react';
 
-function AnimatedNoisyPlane({ position, color, size = 500, noiseScale = 0.005, noiseStrength = 1 }) {
+function AnimatedNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noiseStrength = 1 }) {
   const meshRef = useRef();
 
   useFrame(({ clock }) => {
@@ -15,11 +15,12 @@ function AnimatedNoisyPlane({ position, color, size = 500, noiseScale = 0.005, n
       const x = positionAttr.getX(i);
       const y = positionAttr.getY(i);
 
-      // Smooth, low frequency wave pattern
-      const wave =
-        Math.sin(x * noiseScale + time * 0.5) * 0.4 +
-        Math.sin(y * noiseScale * 1.3 + time * 0.7) * 0.3 +
-        Math.sin((x + y) * noiseScale * 0.8 + time * 0.4) * 0.2;
+      // Layered sine waves for natural wave-like surface
+      const wave1 = Math.sin(x * noiseScale + time * 0.8);
+      const wave2 = Math.cos(y * noiseScale * 1.3 + time * 1.2);
+      const wave3 = Math.sin((x + y) * noiseScale * 0.7 + time * 0.5);
+
+      const wave = wave1 * 0.6 + wave2 * 0.3 + wave3 * 0.2;
 
       positionAttr.setZ(i, wave * noiseStrength);
     }
@@ -34,9 +35,9 @@ function AnimatedNoisyPlane({ position, color, size = 500, noiseScale = 0.005, n
       <meshStandardMaterial
         color={color}
         transparent
-        opacity={0.9}
-        roughness={0.9} // softer reflections
-        metalness={0.02} // very low metalness
+        opacity={0.8}
+        roughness={0.8}
+        metalness={0.05}
         side={THREE.DoubleSide}
       />
     </mesh>
@@ -171,13 +172,13 @@ export default function OceanScene() {
       <AnimatedNoisyPlane
         position={[0, 0, 0]}
         color={0x3fa9f5}
-        noiseScale={0.005}
-        noiseStrength={1}
+        noiseScale={0.3}
+        noiseStrength={0.4}
       />
 
       {/* Sandy ground (lowered more) */}
       <StaticNoisyPlane
-        position={[0, -95, 0]}
+        position={[0, -95, 0]} // lowered from -85 to -95
         color={0x8B7D5B}
         noiseScale={0.15}
         noiseStrength={1.3}
