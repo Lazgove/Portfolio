@@ -178,7 +178,7 @@ export default function OceanScene() {
 
       {/* Sandy ground (lowered more) */}
       <StaticNoisyPlane
-        position={[0, -150, 0]} // lowered from -85 to -95
+        position={[0, -120, 0]} // lowered from -85 to -95
         color={0x8B7D5B}
         noiseScale={0.15}
         noiseStrength={1.3}
