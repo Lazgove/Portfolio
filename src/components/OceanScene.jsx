@@ -1,3 +1,7 @@
+// OceanScene.jsx
+import * as THREE from 'three';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import WaterPlane from './WaterPlane';
 
 export default function OceanScene() {
