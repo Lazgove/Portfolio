@@ -3,14 +3,14 @@ export const waterFragmentShader = `
   uniform sampler2D refractionTexture;
   uniform sampler2D normalMap;
   uniform float time;
-  uniform vec3 cameraPosition;
+  uniform vec3 uCameraPosition;
 
   varying vec3 vWorldPosition;
   varying vec3 vNormal;
   varying vec4 vCoord;
 
   void main() {
-    vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+    vec3 viewDir = normalize(uCameraPosition - vWorldPosition);
 
     // Simple Fresnel term
     float fresnel = pow(1.0 - dot(normalize(vNormal), viewDir), 3.0);
