@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { waterVertexShader } from '../shaders/waterVertexShader';
-import { waterFragmentShader } from '../shaders/waterFragmentShader';
+import { waterVertexShader } from '../shaders/waterVertexShader.js';
+import { waterFragmentShader } from '../shaders/waterFragmentShader.js';
 
 export default function WaterPlane() {
   const ref = useRef();
