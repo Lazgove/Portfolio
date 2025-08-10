@@ -9,7 +9,7 @@ function ScrollCamera({ topY = 10, bottomY = -95 }) {
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
@@ -31,13 +31,12 @@ export default function OceanScene() {
       style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}
     >
       <ambientLight intensity={0.3} />
-      <directionalLight position={[50, 50, 50]} intensity={1.5} />
+      <directionalLight position={[50, 50, 50]} intensity={1.5} castShadow />
 
       <ScrollCamera topY={10} bottomY={-95} />
 
       <WaterPlane />
 
-      {/* Seafloor */}
       <mesh position={[0, -100, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[500, 500]} />
         <meshStandardMaterial color="#8B7D5B" />

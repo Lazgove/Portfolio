@@ -7,17 +7,16 @@ export const waterFragmentShader = `
 
   varying vec3 vWorldPosition;
   varying vec3 vNormal;
-  varying vec4 vCoord;
 
   void main() {
     vec3 viewDir = normalize(cameraPosition - vWorldPosition);
 
-    // Fresnel effect
+    // Fresnel term
     float fresnel = pow(1.0 - dot(normalize(vNormal), viewDir), 3.0);
 
-    // Normal perturbation from normal map (animated)
+    // Distort UVs using normal map + time
     vec2 uv = gl_FragCoord.xy / vec2(1024.0, 1024.0);
-    vec3 normalTex = texture2D(normalMap, uv + vec2(time * 0.05, time * 0.05)).rgb;
+    vec3 normalTex = texture2D(normalMap, uv + vec2(time * 0.05)).rgb;
     vec2 distortion = (normalTex.xy * 2.0 - 1.0) * 0.05;
 
     vec2 reflUV = uv + distortion;
