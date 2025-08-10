@@ -1,410 +1,330 @@
-// OceanScene.jsx
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useRef, useState } from 'react';
 
-// ====== GLSL Shaders (copied verbatim from repo) ======
-
-const dropFragmentShader = `
-uniform vec2 center;
-uniform float radius;
-uniform float strength;
+// GLSL Shaders embedded as strings (taken from the repo)
+const simulationFragmentShader = `
+precision highp float;
 uniform sampler2D texture;
-
+uniform vec2 delta;
 varying vec2 vUv;
 
 void main() {
-  vec4 info = texture2D(texture, vUv);
-  float drop = max(0.0, 1.0 - length(vUv - center) / radius);
-  drop = 0.5 - cos(drop * 3.14159265358979323846) * 0.5;
-  info.r += drop * strength;
-  gl_FragColor = info;
+  vec2 uv = vUv;
+
+  float center = texture2D(texture, uv).r;
+
+  float up = texture2D(texture, uv + vec2(0.0, delta.y)).r;
+  float down = texture2D(texture, uv - vec2(0.0, delta.y)).r;
+  float left = texture2D(texture, uv - vec2(delta.x, 0.0)).r;
+  float right = texture2D(texture, uv + vec2(delta.x, 0.0)).r;
+
+  float newHeight = (up + down + left + right) * 0.5 - center;
+  newHeight *= 0.995; // damping
+
+  gl_FragColor = vec4(newHeight, 0.0, 0.0, 1.0);
+}
+`;
+
+const dropFragmentShader = `
+precision highp float;
+uniform sampler2D texture;
+uniform vec2 center;
+uniform float radius;
+uniform float strength;
+varying vec2 vUv;
+
+void main() {
+  vec2 uv = vUv;
+  float current = texture2D(texture, uv).r;
+
+  float dist = distance(uv, center);
+  if(dist < radius) {
+    float drop = cos(dist / radius * 3.14159) * strength;
+    current += drop;
+  }
+
+  gl_FragColor = vec4(current, 0.0, 0.0, 1.0);
 }
 `;
 
 const normalFragmentShader = `
+precision highp float;
 uniform sampler2D texture;
-uniform float texelSize;
-
+uniform vec2 delta;
 varying vec2 vUv;
 
 void main() {
-  float L = texture2D(texture, vUv - vec2(texelSize, 0)).r;
-  float R = texture2D(texture, vUv + vec2(texelSize, 0)).r;
-  float T = texture2D(texture, vUv + vec2(0, texelSize)).r;
-  float B = texture2D(texture, vUv - vec2(0, texelSize)).r;
+  float heightL = texture2D(texture, vUv - vec2(delta.x, 0.0)).r;
+  float heightR = texture2D(texture, vUv + vec2(delta.x, 0.0)).r;
+  float heightD = texture2D(texture, vUv - vec2(0.0, delta.y)).r;
+  float heightU = texture2D(texture, vUv + vec2(0.0, delta.y)).r;
 
-  vec3 normal = normalize(vec3(L - R, 2.0 * texelSize, B - T));
-  normal = normal * 0.5 + 0.5;
-  gl_FragColor = vec4(normal, 1.0);
+  vec3 normal = normalize(vec3(heightL - heightR, 2.0, heightD - heightU));
+
+  gl_FragColor = vec4(normal * 0.5 + 0.5, 1.0);
 }
 `;
 
 const waterVertexShader = `
-uniform sampler2D normalMap;
-uniform float time;
-
-varying vec3 vPos;
-varying vec3 vNormal;
 varying vec2 vUv;
+varying vec3 vPos;
+
+uniform sampler2D heightMap;
+uniform float time;
 
 void main() {
   vUv = uv;
-  vec3 pos = position;
+  vPos = position;
 
-  vec3 normalTex = texture2D(normalMap, uv).rgb;
-  vec3 normal = normalize(normalTex * 2.0 - 1.0);
-
-  pos.z += normal.r * 0.15;
-
-  vPos = pos;
-  vNormal = normal;
+  float height = texture2D(heightMap, uv).r;
+  vec3 pos = position + normal * height * 0.5;
 
   gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
 }
 `;
 
 const waterFragmentShader = `
-uniform vec3 color;
-uniform vec3 lightDirection;
-
-varying vec3 vNormal;
-varying vec3 vPos;
+precision highp float;
 varying vec2 vUv;
+varying vec3 vPos;
+
+uniform sampler2D normalMap;
+uniform vec3 lightDir;
 
 void main() {
-  float light = max(dot(normalize(vNormal), normalize(lightDirection)), 0.0);
-  vec3 baseColor = color;
-  vec3 finalColor = baseColor * light;
-
-  gl_FragColor = vec4(finalColor, 0.8);
+  vec3 normal = texture2D(normalMap, vUv).rgb * 2.0 - 1.0;
+  float light = dot(normalize(lightDir), normalize(normal));
+  vec3 baseColor = vec3(0.0, 0.4, 0.7);
+  vec3 color = baseColor * light + baseColor * 0.3;
+  gl_FragColor = vec4(color, 0.8);
 }
 `;
 
-// ====== WaterSurface component implementing full simulation ======
-
-function WaterSurface({ size = 512 }) {
+// Full WaterSurface component encapsulates simulation logic
+function WaterSurface({ size = 10, segments = 256 }) {
   const meshRef = useRef();
-  const { gl } = useThree();
+  const simScene = useRef();
+  const simCamera = useRef();
+  const simQuad = useRef();
 
-  // Create two ping-pong render targets for simulation
-  const [simRT1] = useState(() =>
-    new THREE.WebGLRenderTarget(size, size, {
-      type: THREE.FloatType,
-      minFilter: THREE.LinearFilter,
-      magFilter: THREE.LinearFilter,
-      wrapS: THREE.ClampToEdgeWrapping,
-      wrapT: THREE.ClampToEdgeWrapping,
-      depthBuffer: false,
-      stencilBuffer: false,
-    }),
-  );
-  const [simRT2] = useState(() =>
-    simRT1.clone(),
-  );
+  const simRT1 = useRef();
+  const simRT2 = useRef();
+  const normalRT = useRef();
 
-  // Normal map render target
-  const [normalRT] = useState(() =>
-    new THREE.WebGLRenderTarget(size, size, {
-      type: THREE.FloatType,
-      minFilter: THREE.LinearFilter,
-      magFilter: THREE.LinearFilter,
-      wrapS: THREE.ClampToEdgeWrapping,
-      wrapT: THREE.ClampToEdgeWrapping,
-      depthBuffer: false,
-      stencilBuffer: false,
-    }),
-  );
+  const simulationMaterial = useRef();
+  const dropMaterial = useRef();
+  const normalMaterial = useRef();
+  const waterMaterial = useRef();
 
-  // Keep track of which RT is the current simulation state
-  const simWriteRef = useRef(simRT1);
-  const simReadRef = useRef(simRT2);
+  const simWriteRef = useRef();
+  const simReadRef = useRef();
 
-  // Setup scenes and cameras for simulation passes
-  const simScene = useRef(new THREE.Scene());
-  const simCamera = useRef(new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1));
-
-  // A fullscreen quad geometry for simulation passes
-  const simQuad = useRef(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), null));
-
-  useEffect(() => {
-    simScene.current.add(simQuad.current);
-  }, []);
-
-  // --- Simulation materials ---
-
-  // Drop material to add ripples on demand
   const dropUniforms = useRef({
-    center: { value: new THREE.Vector2(0.5, 0.5) },
-    radius: { value: 0.03 },
+    center: { value: new THREE.Vector2() },
+    radius: { value: 0.05 },
     strength: { value: 0.5 },
     texture: { value: null },
   });
 
-  const dropMaterial = useRef(
-    new THREE.ShaderMaterial({
+  const simulationUniforms = useRef({
+    texture: { value: null },
+    delta: { value: new THREE.Vector2(1 / segments, 1 / segments) },
+  });
+
+  const normalUniforms = useRef({
+    texture: { value: null },
+    delta: { value: new THREE.Vector2(1 / segments, 1 / segments) },
+  });
+
+  const waterUniforms = useRef({
+    heightMap: { value: null },
+    normalMap: { value: null },
+    time: { value: 0 },
+    lightDir: { value: new THREE.Vector3(0.5, 1, 0.5).normalize() },
+  });
+
+  const { gl } = useThree();
+
+  // Initialize render targets and materials
+  useEffect(() => {
+    simRT1.current = new THREE.WebGLRenderTarget(segments, segments, {
+      wrapS: THREE.ClampToEdgeWrapping,
+      wrapT: THREE.ClampToEdgeWrapping,
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.FloatType,
+      depthBuffer: false,
+      stencilBuffer: false,
+    });
+
+    simRT2.current = simRT1.current.clone();
+    normalRT.current = simRT1.current.clone();
+
+    simWriteRef.current = simRT1.current;
+    simReadRef.current = simRT2.current;
+
+    simScene.current = new THREE.Scene();
+    simCamera.current = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    // Geometry for simulation full screen quad
+    const simGeometry = new THREE.PlaneGeometry(2, 2);
+    simQuad.current = new THREE.Mesh(simGeometry, null);
+    simScene.current.add(simQuad.current);
+
+    // Simulation material (wave propagation)
+    simulationMaterial.current = new THREE.ShaderMaterial({
+      uniforms: simulationUniforms.current,
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position,1.0);
+        }
+      `,
+      fragmentShader: simulationFragmentShader,
+    });
+
+    // Drop material (inject ripple)
+    dropMaterial.current = new THREE.ShaderMaterial({
       uniforms: dropUniforms.current,
       vertexShader: `
         varying vec2 vUv;
         void main() {
           vUv = uv;
-          gl_Position = vec4(position.xy, 0.0, 1.0);
+          gl_Position = vec4(position,1.0);
         }
       `,
       fragmentShader: dropFragmentShader,
-    }),
-  );
+    });
 
-  // Simulation update material — performs ripple physics iteration
-  const updateUniforms = useRef({
-    texture: { value: null },
-    delta: { value: 0.016 },
-  });
-
-  const updateMaterial = useRef(
-    new THREE.ShaderMaterial({
-      uniforms: updateUniforms.current,
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = vec4(position.xy, 0.0, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform sampler2D texture;
-        uniform float delta;
-
-        varying vec2 vUv;
-
-        void main() {
-          vec2 texel = vec2(1.0 / ${size}.0, 1.0 / ${size}.0);
-
-          float up = texture2D(texture, vUv + vec2(0.0, texel.y)).r;
-          float down = texture2D(texture, vUv - vec2(0.0, texel.y)).r;
-          float left = texture2D(texture, vUv - vec2(texel.x, 0.0)).r;
-          float right = texture2D(texture, vUv + vec2(texel.x, 0.0)).r;
-
-          float center = texture2D(texture, vUv).r;
-
-          float laplacian = (up + down + left + right - 4.0 * center);
-
-          float velocity = texture2D(texture, vUv).g;
-
-          velocity += laplacian * 0.5;
-          velocity *= 0.995;
-
-          float height = center + velocity * delta;
-
-          gl_FragColor = vec4(height, velocity, 0.0, 1.0);
-        }
-      `,
-    }),
-  );
-
-  // Normal map calculation material
-  const normalUniforms = useRef({
-    texture: { value: null },
-    texelSize: { value: 1 / size },
-  });
-
-  const normalMaterial = useRef(
-    new THREE.ShaderMaterial({
+    // Normal map calculation
+    normalMaterial.current = new THREE.ShaderMaterial({
       uniforms: normalUniforms.current,
       vertexShader: `
         varying vec2 vUv;
         void main() {
           vUv = uv;
-          gl_Position = vec4(position.xy, 0.0, 1.0);
+          gl_Position = vec4(position,1.0);
         }
       `,
       fragmentShader: normalFragmentShader,
-    }),
-  );
+    });
 
-  // Water surface shader material
-  const waterUniforms = useRef({
-    normalMap: { value: null },
-    time: { value: 0 },
-    color: { value: new THREE.Color(0x3fa9f5) },
-    lightDirection: { value: new THREE.Vector3(0.5, 1, 0.5).normalize() },
-  });
-
-  const waterMaterial = useRef(
-    new THREE.ShaderMaterial({
-      uniforms: waterUniforms.current,
+    // Water surface material
+    waterMaterial.current = new THREE.ShaderMaterial({
       vertexShader: waterVertexShader,
       fragmentShader: waterFragmentShader,
+      uniforms: waterUniforms.current,
       transparent: true,
       side: THREE.DoubleSide,
-    }),
-  );
+    });
 
-  // --- Helper function to swap simulation render targets ---
-  const swapRT = () => {
-    const temp = simReadRef.current;
-    simReadRef.current = simWriteRef.current;
-    simWriteRef.current = temp;
-  };
+    // Initialize simulation with zero data
+    const zeroData = new Float32Array(segments * segments * 4);
+    const zeroTexture = new THREE.DataTexture(
+      zeroData,
+      segments,
+      segments,
+      THREE.RGBAFormat,
+      THREE.FloatType
+    );
+    zeroTexture.needsUpdate = true;
 
-  // --- Inject drops at random positions periodically ---
-  useEffect(() => {
-    const interval = setInterval(() => {
-      dropUniforms.current.center.value.set(Math.random(), Math.random());
-      dropUniforms.current.radius.value = 0.03 + Math.random() * 0.02;
-      dropUniforms.current.strength.value = 0.3 + Math.random() * 0.5;
+    gl.setRenderTarget(simRT1.current);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(true, true, true);
+    gl.setRenderTarget(simRT2.current);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(true, true, true);
+    gl.setRenderTarget(null);
+  }, [gl, segments]);
 
-      dropUniforms.current.texture.value = simReadRef.current.texture;
+  // Swap ping-pong RTs helper
+  function swapRT() {
+    const temp = simWriteRef.current;
+    simWriteRef.current = simReadRef.current;
+    simReadRef.current = temp;
 
-      simQuad.current.material = dropMaterial.current;
+    simulationUniforms.current.texture.value = simReadRef.current.texture;
+    dropUniforms.current.texture.value = simReadRef.current.texture;
+    normalUniforms.current.texture.value = simReadRef.current.texture;
+  }
 
-      gl.setRenderTarget(simWriteRef.current);
-      gl.render(simScene.current, simCamera.current);
-      gl.setRenderTarget(null);
+  // Inject a drop (ripple) at given uv coords
+  function addDrop(uvX, uvY, radius = 0.05, strength = 0.6) {
+    dropUniforms.current.center.value.set(uvX, uvY);
+    dropUniforms.current.radius.value = radius;
+    dropUniforms.current.strength.value = strength;
+    dropUniforms.current.texture.value = simReadRef.current.texture;
 
-      swapRT();
-
-      dropUniforms.current.texture.value = null;
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [gl]);
-
-  // --- Main simulation loop ---
-  useFrame(({ clock }) => {
-    const time = clock.getElapsedTime();
-
-    // 1. Update simulation (ripple physics)
-    updateUniforms.current.texture.value = simReadRef.current.texture;
-    simQuad.current.material = updateMaterial.current;
-
+    simQuad.current.material = dropMaterial.current;
     gl.setRenderTarget(simWriteRef.current);
     gl.render(simScene.current, simCamera.current);
     gl.setRenderTarget(null);
 
     swapRT();
 
-    // 2. Calculate normal map from height map
-    normalUniforms.current.texture.value = simReadRef.current.texture;
-    simQuad.current.material = normalMaterial.current;
+    dropUniforms.current.texture.value = null;
+  }
 
-    gl.setRenderTarget(normalRT);
+  // Animate simulation each frame
+  useFrame(({ clock }) => {
+    const time = clock.getElapsedTime();
+
+    // 1. Simulation pass - wave propagation
+    simulationUniforms.current.texture.value = simReadRef.current.texture;
+    simQuad.current.material = simulationMaterial.current;
+    gl.setRenderTarget(simWriteRef.current);
     gl.render(simScene.current, simCamera.current);
     gl.setRenderTarget(null);
 
-    // 3. Update water material uniform
-    waterUniforms.current.normalMap.value = normalRT.texture;
+    swapRT();
+
+    // 2. Normal map calculation pass
+    normalUniforms.current.texture.value = simReadRef.current.texture;
+    simQuad.current.material = normalMaterial.current;
+    gl.setRenderTarget(normalRT.current);
+    gl.render(simScene.current, simCamera.current);
+    gl.setRenderTarget(null);
+
+    // 3. Update water material uniforms
+    waterUniforms.current.heightMap.value = simReadRef.current.texture;
+    waterUniforms.current.normalMap.value = normalRT.current.texture;
     waterUniforms.current.time.value = time;
-  });
 
-  // --- Mesh setup ---
-  return (
-    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} material={waterMaterial.current}>
-      <planeGeometry args={[10, 10, 256, 256]} />
-    </mesh>
-  );
-}
-
-// ===== Other scene components =====
-
-// Ground plane (simple)
-function GroundPlane() {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
-      <planeGeometry args={[10, 10]} />
-      <meshStandardMaterial color="#8B7D5B" roughness={1} metalness={0} />
-    </mesh>
-  );
-}
-
-// Scroll camera moves Y between topY and bottomY
-function ScrollCamera({ topY = 2, bottomY = -2 }) {
-  const { camera } = useThree();
-  const [scrollY, setScrollY] = useState(0);
-
-  useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  useFrame(() => {
-    const maxScroll = document.body.scrollHeight - window.innerHeight;
-    const progress = maxScroll > 0 ? scrollY / maxScroll : 0;
-    camera.position.y = THREE.MathUtils.lerp(topY, bottomY, progress);
-    camera.position.z = 5;
-    camera.position.x = 0;
-    camera.lookAt(0, 0, 0);
-  });
-
-  return null;
-}
-
-// Lighting
-function Lights() {
-  const dirLight = useRef();
-  const { camera } = useThree();
-
-  useFrame(() => {
-    if (!dirLight.current) return;
-    const depthFactor = camera.position.y > 0 ? 0 : THREE.MathUtils.clamp((-camera.position.y) / 10, 0, 1);
-    dirLight.current.intensity = THREE.MathUtils.lerp(1.5, 0.3, depthFactor);
-  });
-
-  return (
-    <>
-      <directionalLight
-        ref={dirLight}
-        position={[10, 20, 10]}
-        intensity={1.5}
-        color={0xaaccff}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-      />
-      <ambientLight intensity={0.3} />
-    </>
-  );
-}
-
-// Fog and background color based on camera height
-function FogAndSkySwitcher() {
-  const { scene, camera } = useThree();
-
-  useEffect(() => {
-    if (!scene.fog) {
-      scene.fog = new THREE.Fog(0x87ceeb, 5, 20);
+    // Optional: Add periodic drops automatically
+    if (Math.floor(time) % 4 === 0) {
+      const uvX = 0.3 + 0.4 * Math.sin(time * 1.5);
+      const uvY = 0.3 + 0.4 * Math.cos(time * 1.5);
+      addDrop(uvX, uvY, 0.06, 0.8);
     }
-    scene.background = new THREE.Color(0x87ceeb);
-  }, [scene]);
-
-  useFrame(() => {
-    const y = camera.position.y;
-    const fogFactor = THREE.MathUtils.clamp((2 - y) / 10, 0, 1);
-    const skyColor = new THREE.Color(0x87ceeb);
-    const deepColor = new THREE.Color(0x1e5d88);
-    const bgColor = skyColor.clone().lerp(deepColor, fogFactor);
-    scene.background.copy(bgColor);
-    scene.fog.color.copy(bgColor);
-    scene.fog.near = THREE.MathUtils.lerp(5, 2, fogFactor);
-    scene.fog.far = THREE.MathUtils.lerp(20, 10, fogFactor);
   });
 
-  return null;
+  return (
+    <mesh
+      ref={meshRef}
+      rotation={[-Math.PI / 2, 0, 0]}
+      geometry={new THREE.PlaneGeometry(size, size, segments, segments)}
+      material={waterMaterial.current}
+      frustumCulled={false}
+    />
+  );
 }
 
-// ===== Exported OceanScene =====
+// Main Canvas wrapper
 export default function OceanScene() {
   return (
     <Canvas
-      shadows
-      camera={{ position: [0, 2, 5], fov: 45, near: 0.1, far: 100 }}
-      style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}
+      camera={{ position: [0, 5, 5], fov: 45, near: 0.1, far: 100 }}
+      gl={{ antialias: true, powerPreference: 'high-performance' }}
+      onCreated={({ gl }) => {
+        gl.setClearColor(new THREE.Color(0x202840));
+      }}
     >
-      <FogAndSkySwitcher />
-      <ScrollCamera topY={2} bottomY={-2} />
-      <Lights />
-      <GroundPlane />
+      <ambientLight intensity={0.3} />
+      <directionalLight position={[5, 10, 7]} intensity={1} />
       <WaterSurface />
     </Canvas>
   );

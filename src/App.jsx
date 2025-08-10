@@ -11,21 +11,6 @@ export default function App() {
   return (
     <>
       <OceanScene  /> {/* 👈 Background canvas behind everything */}
-      <Navbar />
-      <main className="pt-20 relative z-10"> {/* Ensure content sits above canvas */}
-        <Element name="home">
-          <Home />
-        </Element>
-        <Element name="about">
-          <About />
-        </Element>
-        <Element name="projects">
-          <Projects />
-        </Element>
-        <Element name="contact">
-          <Contact />
-        </Element>
-      </main>
     </>
   );
 }
