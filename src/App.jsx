@@ -1,16 +1,13 @@
-import Navbar from './components/Navbar';
-import Home from './pages/Home';
-import About from './pages/About';
-import Projects from './pages/Projects';
-import Contact from './pages/Contact';
-import { Element } from 'react-scroll';
-import MetaballBackground from './components/MetaballBackground'; // <-- 👈 Add this import
-import OceanScene from './components/OceanScene';
+// App.js
+import React from 'react';
+import WaterScene from './components/WaterScene';
 
-export default function App() {
+function App() {
   return (
-    <>
-      <OceanScene  /> {/* 👈 Background canvas behind everything */}
-    </>
+    <div style={{ height: '100vh' }}>
+      <WaterScene />
+    </div>
   );
 }
+
+export default App;
