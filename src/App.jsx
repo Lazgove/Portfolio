@@ -1,13 +1,31 @@
-// App.js
-import React from 'react';
-import WaterScene from './components/WaterScene';
+import React, { useRef, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Water } from './WaterPatched'; // path to above WaterPatched.js
+import { Vector3 } from 'three';
 
-function App() {
+function WaterScene() {
+  const waterRef = useRef();
+  const { gl } = useThree();
+
+  useFrame(({ clock }) => {
+    if (waterRef.current) {
+      waterRef.current.update(clock.getElapsedTime());
+    }
+  });
+
   return (
-    <div style={{ height: '100vh' }}>
-      <WaterScene />
-    </div>
+    <Water
+      ref={waterRef}
+      renderer={gl}
+      distortionScale={20}
+    />
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <Canvas gl={{ version: 2 }} camera={{ position: [30, 30, 100], fov: 55, near: 1, far: 20000 }}>
+      <WaterScene />
+    </Canvas>
+  );
+}
