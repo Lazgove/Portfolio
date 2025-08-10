@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef, useState, useMemo } from 'react';
+import WaterPlane from './WaterPlane';
 
 function AnimatedNoisyPlane({ position, color, size = 500, noiseScale = 0.5, noiseStrength = 1 }) {
   const meshRef = useRef();
@@ -169,12 +170,7 @@ export default function OceanScene() {
       <Lights />
 
       {/* Water surface */}
-      <AnimatedNoisyPlane
-        position={[0, 0, 0]}
-        color={0x3fa9f5}
-        noiseScale={0.3}
-        noiseStrength={0.4}
-      />
+      <WaterPlane />
 
       {/* Sandy ground (lowered more) */}
       <StaticNoisyPlane
