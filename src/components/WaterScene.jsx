@@ -4,7 +4,6 @@ import * as THREE from 'three';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { Sky } from '@react-three/drei';
 
-// Register the Water class so react-three-fiber can handle it
 extend({ Water });
 
 function WaterPlane() {
@@ -14,7 +13,6 @@ function WaterPlane() {
   useEffect(() => {
     if (!waterRef.current) return;
 
-    // Load water normals texture
     const waterNormals = new THREE.TextureLoader().load(
       'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/waternormals.jpg',
       (texture) => {
@@ -22,7 +20,6 @@ function WaterPlane() {
       }
     );
 
-    // Setup Water object properties
     waterRef.current.material.uniforms['normalSampler'].value = waterNormals;
     waterRef.current.material.uniforms['sunDirection'].value.copy(new THREE.Vector3(1, 1, 1).normalize());
     waterRef.current.material.uniforms['sunColor'].value.set('#ffffff');
@@ -44,7 +41,7 @@ function WaterPlane() {
         {
           textureWidth: 512,
           textureHeight: 512,
-          waterNormals: null, // set in useEffect
+          waterNormals: null,
           alpha: 1.0,
           sunDirection: new THREE.Vector3(),
           sunColor: new THREE.Color(0xffffff),
@@ -61,11 +58,9 @@ function WaterPlane() {
 export default function WaterScene() {
   return (
     <Canvas camera={{ position: [30, 30, 100], fov: 55, near: 1, far: 20000 }}>
-      {/* Ambient and directional light */}
       <ambientLight intensity={0.5} />
       <directionalLight position={[0, 100, 100]} intensity={0.8} />
 
-      {/* Skybox */}
       <Sky
         distance={450000}
         sunPosition={[0, 1, 0]}
@@ -73,7 +68,6 @@ export default function WaterScene() {
         azimuth={0.25}
       />
 
-      {/* Water plane */}
       <WaterPlane />
     </Canvas>
   );
