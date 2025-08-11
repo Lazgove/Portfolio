@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useState } from 'react';
 import WaterPlane from './WaterPlane';
+import '../material/WaterMaterial.js'; // <-- ensures `extend()` runs
 
 function ScrollCamera({ topY = 10, bottomY = -95 }) {
   const { camera } = useThree();

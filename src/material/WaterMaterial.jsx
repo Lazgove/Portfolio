@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import { shaderMaterial } from '@react-three/drei';
 import { extend } from '@react-three/fiber';
 
-import { waterVertexShader } from './/shaders/waterVertexShader.js';
-import { waterFragmentShader } from '../shaders/waterFragmentShader.js';
-import { perturbNormal2Arb } from '../shaders/perturbNormal2Arb.js';
-import { simplex3d } from '../shaders/simplex3d.js';
-import { snoise } from '../shaders/snoise.js';
+// Your shader strings imports here
+import { waterVertexShader } from './shaders/waterVertexShader.js';
+import { waterFragmentShader } from './shaders/waterFragmentShader.js';
+import { perturbNormal2Arb } from './shaders/perturbNormal2Arb.js';
+import { simplex3d } from './shaders/simplex3d.js';
+import { snoise } from './shaders/snoise.js';
 
-// Compose the full vertex and fragment shaders by injecting the includes
 const vertexShader = `
   ${simplex3d}
   ${snoise}
@@ -34,6 +34,6 @@ const WaterMaterial = shaderMaterial(
   fragmentShader
 );
 
+// **THIS IS IMPORTANT**: extend with the exact class name
 extend({ WaterMaterial });
-
 export default WaterMaterial;
