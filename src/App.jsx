@@ -4,14 +4,12 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useFBO } from '@react-three/drei';
 import * as THREE from 'three';
 
+// Shaders (same as before)
 const vertexShader = `
   varying vec2 vUv;
-  varying vec3 vWorldPosition;
   void main() {
     vUv = uv;
-    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-    vWorldPosition = worldPosition.xyz;
-    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+    gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
   }
 `;
 
@@ -20,7 +18,6 @@ const fragmentShader = `
   varying vec2 vUv;
   
   void main() {
-    // Sample the reflection texture with flipped Y (framebuffer coords)
     vec2 uv = vec2(vUv.x, 1.0 - vUv.y);
     vec4 reflectedColor = texture2D(reflectionTexture, uv);
     gl_FragColor = reflectedColor;
@@ -68,7 +65,7 @@ function WaterPlane() {
     reflectionCamera.updateProjectionMatrix();
     reflectionCamera.updateMatrixWorld();
 
-    // *** Hide water plane before rendering reflection to avoid feedback loop ***
+    // Hide water plane during reflection render to avoid feedback loop
     meshRef.current.visible = false;
 
     gl.setRenderTarget(reflectionFBO);
@@ -80,14 +77,22 @@ function WaterPlane() {
     // Show water plane again
     meshRef.current.visible = true;
 
-    // Update shader uniform with reflection texture
+    // Update shader uniform
     material.uniforms.reflectionTexture.value = reflectionFBO.texture;
   });
 
+  // DEBUG: uncomment below to show a simple visible plane (replace shader)
+  // return (
+  //   <mesh rotation-x={-Math.PI / 2} ref={meshRef} position={[0, 0, 0]}>
+  //     <planeGeometry args={[10, 10]} />
+  //     <meshStandardMaterial color="blue" wireframe />
+  //   </mesh>
+  // );
+
   return (
     <mesh
-      ref={meshRef}
       rotation-x={-Math.PI / 2}
+      ref={meshRef}
       material={material}
       position={[0, 0, 0]}
     >
@@ -107,11 +112,27 @@ function Box() {
 
 export default function App() {
   return (
-    <Canvas camera={{ position: [0, 3, 5], fov: 50 }}>
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[5, 10, 7]} intensity={1} />
-      <Box />
-      <WaterPlane />
-    </Canvas>
+    <>
+      <style>{`
+        body, html, #root {
+          margin: 0;
+          height: 100%;
+          width: 100%;
+          overflow: hidden;
+        }
+        canvas {
+          display: block;
+        }
+      `}</style>
+      <Canvas
+        camera={{ position: [0, 3, 8], fov: 50 }}
+        style={{ height: '100vh', width: '100vw' }}
+      >
+        <ambientLight intensity={0.3} />
+        <directionalLight position={[5, 10, 7]} intensity={1} />
+        <Box />
+        <WaterPlane />
+      </Canvas>
+    </>
   );
 }
