@@ -1,10 +1,8 @@
-// App.jsx
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useFBO } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Shaders (same as before)
 const vertexShader = `
   varying vec2 vUv;
   void main() {
@@ -24,13 +22,17 @@ const fragmentShader = `
   }
 `;
 
-function WaterPlane() {
+function WaterPlane({ debugVisible = false }) {
   const { gl, scene, camera, size } = useThree();
   const reflectionFBO = useFBO(size.width, size.height);
   const reflectionCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
   const meshRef = useRef();
 
   const material = useMemo(() => {
+    if (debugVisible) {
+      // Simple visible material for debugging
+      return new THREE.MeshStandardMaterial({ color: 'blue', wireframe: false, opacity: 0.6, transparent: true });
+    }
     return new THREE.ShaderMaterial({
       vertexShader,
       fragmentShader,
@@ -39,14 +41,14 @@ function WaterPlane() {
       },
       transparent: true,
     });
-  }, []);
+  }, [debugVisible]);
 
   useFrame(() => {
-    // Mirror camera position over water plane (y=0)
+    if (debugVisible) return; // Skip reflection render pass if debugging
+
     reflectionCamera.position.copy(camera.position);
     reflectionCamera.position.y *= -1;
 
-    // Mirror camera look direction
     const lookDirection = new THREE.Vector3();
     camera.getWorldDirection(lookDirection);
 
@@ -65,7 +67,6 @@ function WaterPlane() {
     reflectionCamera.updateProjectionMatrix();
     reflectionCamera.updateMatrixWorld();
 
-    // Hide water plane during reflection render to avoid feedback loop
     meshRef.current.visible = false;
 
     gl.setRenderTarget(reflectionFBO);
@@ -74,20 +75,10 @@ function WaterPlane() {
 
     gl.setRenderTarget(null);
 
-    // Show water plane again
     meshRef.current.visible = true;
 
-    // Update shader uniform
     material.uniforms.reflectionTexture.value = reflectionFBO.texture;
   });
-
-  // DEBUG: uncomment below to show a simple visible plane (replace shader)
-  // return (
-  //   <mesh rotation-x={-Math.PI / 2} ref={meshRef} position={[0, 0, 0]}>
-  //     <planeGeometry args={[10, 10]} />
-  //     <meshStandardMaterial color="blue" wireframe />
-  //   </mesh>
-  // );
 
   return (
     <mesh
@@ -103,7 +94,7 @@ function WaterPlane() {
 
 function Box() {
   return (
-    <mesh position={[0, 1, 0]}>
+    <mesh position={[0, 1, 0]} castShadow receiveShadow>
       <boxGeometry args={[1, 1, 1]} />
       <meshStandardMaterial color="orange" />
     </mesh>
@@ -119,19 +110,36 @@ export default function App() {
           height: 100%;
           width: 100%;
           overflow: hidden;
+          background: #88ccff;
         }
         canvas {
           display: block;
         }
       `}</style>
       <Canvas
+        shadows
         camera={{ position: [0, 3, 8], fov: 50 }}
         style={{ height: '100vh', width: '100vw' }}
       >
-        <ambientLight intensity={0.3} />
-        <directionalLight position={[5, 10, 7]} intensity={1} />
+        {/* Lights */}
+        <ambientLight intensity={0.4} />
+        <directionalLight
+          position={[5, 10, 5]}
+          intensity={1}
+          castShadow
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
+          shadow-camera-near={1}
+          shadow-camera-far={20}
+          shadow-camera-left={-10}
+          shadow-camera-right={10}
+          shadow-camera-top={10}
+          shadow-camera-bottom={-10}
+        />
+        {/* Objects */}
         <Box />
-        <WaterPlane />
+        {/* Water plane: set debugVisible to true to test visibility */}
+        <WaterPlane debugVisible={false} />
       </Canvas>
     </>
   );
