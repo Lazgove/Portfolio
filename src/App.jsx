@@ -27,18 +27,12 @@ const fragmentShader = `
   }
 `;
 
-// Component to render the reflection framebuffer and the water plane
 function WaterPlane() {
   const { gl, scene, camera, size } = useThree();
   const reflectionFBO = useFBO(size.width, size.height);
+  const reflectionCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
+  const meshRef = useRef();
 
-  // Create a reflection camera by mirroring main camera on the water plane (y=0)
-  const reflectionCamera = useMemo(() => {
-    const cam = new THREE.PerspectiveCamera();
-    return cam;
-  }, []);
-
-  // Shader material for the water plane, using the reflection texture
   const material = useMemo(() => {
     return new THREE.ShaderMaterial({
       vertexShader,
@@ -50,20 +44,21 @@ function WaterPlane() {
     });
   }, []);
 
-  const meshRef = useRef();
-
   useFrame(() => {
     // Mirror camera position over water plane (y=0)
     reflectionCamera.position.copy(camera.position);
     reflectionCamera.position.y *= -1;
 
     // Mirror camera look direction
+    const lookDirection = new THREE.Vector3();
+    camera.getWorldDirection(lookDirection);
+
     reflectionCamera.up.set(0, -1, 0);
     reflectionCamera.lookAt(
       new THREE.Vector3(
-        camera.position.x + camera.getWorldDirection(new THREE.Vector3()).x,
-        -camera.position.y + camera.getWorldDirection(new THREE.Vector3()).y,
-        camera.position.z + camera.getWorldDirection(new THREE.Vector3()).z
+        camera.position.x + lookDirection.x,
+        -camera.position.y + lookDirection.y,
+        camera.position.z + lookDirection.z
       )
     );
 
@@ -73,18 +68,29 @@ function WaterPlane() {
     reflectionCamera.updateProjectionMatrix();
     reflectionCamera.updateMatrixWorld();
 
-    // Render scene from reflection camera to framebuffer
+    // *** Hide water plane before rendering reflection to avoid feedback loop ***
+    meshRef.current.visible = false;
+
     gl.setRenderTarget(reflectionFBO);
     gl.clear();
     gl.render(scene, reflectionCamera);
+
     gl.setRenderTarget(null);
 
-    // Update material uniform with reflection texture
+    // Show water plane again
+    meshRef.current.visible = true;
+
+    // Update shader uniform with reflection texture
     material.uniforms.reflectionTexture.value = reflectionFBO.texture;
   });
 
   return (
-    <mesh rotation-x={-Math.PI / 2} ref={meshRef} material={material}>
+    <mesh
+      ref={meshRef}
+      rotation-x={-Math.PI / 2}
+      material={material}
+      position={[0, 0, 0]}
+    >
       <planeGeometry args={[10, 10]} />
     </mesh>
   );
