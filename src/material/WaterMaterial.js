@@ -3,11 +3,11 @@ import { shaderMaterial } from '@react-three/drei';
 import { extend } from '@react-three/fiber';
 
 // Your shader strings imports here
-import { waterVertexShader } from './shaders/waterVertexShader.js';
-import { waterFragmentShader } from './shaders/waterFragmentShader.js';
-import { perturbNormal2Arb } from './shaders/perturbNormal2Arb.js';
-import { simplex3d } from './shaders/simplex3d.js';
-import { snoise } from './shaders/snoise.js';
+import { waterVertexShader } from '../shaders/waterVertexShader.js';
+import { waterFragmentShader } from '../shaders/waterFragmentShader.js';
+import { perturbNormal2Arb } from '../shaders/perturbNormal2Arb.js';
+import { simplex3d } from '../shaders/simplex3d.js';
+import { snoise } from '../shaders/snoise.js';
 
 const vertexShader = `
   ${simplex3d}
